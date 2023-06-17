@@ -1,6 +1,6 @@
 A = {}
 
-A.command = "context-fetcher"
+A.command = "context-pilot"
 A.current_title = ""
 
 local telescope_pickers = require("telescope.pickers")
