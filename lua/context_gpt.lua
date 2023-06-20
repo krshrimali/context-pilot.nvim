@@ -192,7 +192,7 @@ function A.get_topn_contexts_current_line()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-fetcher " .. file_path .. " -s " .. row .. " -e " .. row .. " -t files"
+  local command = "context-pilot " .. file_path .. " -s " .. row .. " -e " .. row .. " -t files"
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
