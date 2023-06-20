@@ -85,7 +85,7 @@ function A.get_topn_contexts()
 
   -- Get the full path of the buffer
   local full_path = vim.fn.expand(buffer_name)
-  local command = "context-fetcher " .. full_path .. " -s " .. 1 .. " -e " .. 0 .. " -t files"
+  local command = "context-pilot " .. full_path .. " -s " .. 1 .. " -e " .. 0 .. " -t files"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
 
   -- notify_inform("Command: " .. command)
@@ -105,7 +105,7 @@ function A.get_topn_authors()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-fetcher " .. file_path .. " -s " .. 1 .. " -e " .. 0 .. " -t authors"
+  local command = "context-pilot " .. file_path .. " -s " .. 1 .. " -e " .. 0 .. " -t authors"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -124,7 +124,7 @@ function A.get_topn_authors_range(start, end_line)
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-fetcher "
+  local command = "context-pilot "
     .. file_path
     .. " -s "
     .. start
@@ -150,7 +150,7 @@ function A.get_topn_authors_current_line()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-fetcher " .. file_path .. " -s " .. row .. " -e " .. row .. " -t authors"
+  local command = "context-pilot " .. file_path .. " -s " .. row .. " -e " .. row .. " -t authors"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -169,7 +169,7 @@ function A.get_topn_contexts_range(start, end_line)
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-fetcher "
+  local command = "context-pilot "
     .. file_path
     .. " -s "
     .. start
