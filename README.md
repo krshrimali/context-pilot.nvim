@@ -1,6 +1,6 @@
 # ContextPilot Plugin for NeoVim
 
-Find the server code here: https://github.com/krshrimali/context-pilot-rs
+Find the server code here: https://github.com/krshrimali/context-pilot-rs and make sure to download the binary ["context-pilot" from the releases page](https://github.com/krshrimali/context-pilot-rs/releases)
 
 Installation using Packer:
 
