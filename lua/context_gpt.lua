@@ -48,7 +48,20 @@ local notify_inform = function(msg, opts)
   vim.api.nvim_notify(msg, opt, {})
 end
 
+-- Can be re-used while debugging to print the data
+-- local print_data = function(_, _data)
+--   print("Printing data")
+--   print(_data.ipairs)
+--   if #_data ~= 0 then
+--     for _, l in ipairs(_data) do
+--       print("Message: " .. l)
+--     end
+--   end
+-- end
+
 local append_data = function(_, _data)
+  print("Appending data")
+  print(_data.ipairs)
   if #_data ~= 0 then
     for _, l in ipairs(_data) do
       -- notify_inform("Message: " .. l)
@@ -106,7 +119,7 @@ function A.get_topn_authors()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. 1 .. " -e " .. 0 .. " -t author"
+  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. 1 .. " -e " .. 0 .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -128,6 +141,7 @@ function A.get_topn_authors_range(start, end_line)
   local folder_path = vim.loop.cwd()
   local command = "context-pilot "
     .. file_path
+    .. " "
     .. folder_path
     .. " -s "
     .. start
@@ -154,7 +168,7 @@ function A.get_topn_authors_current_line()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. row .. " -e " .. row .. " -t author"
+  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. row .. " -e " .. row .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -176,6 +190,7 @@ function A.get_topn_contexts_range(start, end_line)
   local folder_path = vim.loop.cwd()
   local command = "context-pilot "
     .. file_path
+    .. " "
     .. folder_path
     .. " -s "
     .. start
@@ -199,11 +214,12 @@ function A.get_topn_contexts_current_line()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. row .. " -e " .. row .. " -t file"
+  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. row .. " -e " .. row .. " -t file"
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
     on_stdout = append_data,
+    -- on_stderr = print_data,
     -- on_stderr = append_data,
   })
 end
