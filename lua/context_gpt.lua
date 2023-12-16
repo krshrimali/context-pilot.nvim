@@ -6,10 +6,10 @@ A.current_title = ""
 local telescope_pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
 
-local telescope = require("telescope")
-local actions = require("telescope.actions")
+-- local telescope = require("telescope")
+-- local actions = require("telescope.actions")
 local sorters = require("telescope.sorters")
-local previewers = require("telescope.previewers")
+-- local previewers = require("telescope.previewers")
 
 -- Load the fzy native extension
 require("telescope").load_extension("fzy_native")
@@ -57,7 +57,7 @@ local append_data = function(_, _data)
         table.insert(A.autorun_data, file_path)
       end
     end
-    local opts = {}
+    -- local opts = {}
     -- notify_inform("Creating table from ..." .. A.autorun_data)
     if #A.autorun_data ~= 0 then
       telescope_picker(A.current_title)
@@ -105,7 +105,8 @@ function A.get_topn_authors()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-pilot " .. file_path .. " -s " .. 1 .. " -e " .. 0 .. " -t author"
+  local folder_path = vim.loop.cwd()
+  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. 1 .. " -e " .. 0 .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -124,8 +125,10 @@ function A.get_topn_authors_range(start, end_line)
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
+  local folder_path = vim.loop.cwd()
   local command = "context-pilot "
     .. file_path
+    .. folder_path
     .. " -s "
     .. start
     .. " -e "
@@ -150,7 +153,8 @@ function A.get_topn_authors_current_line()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-pilot " .. file_path .. " -s " .. row .. " -e " .. row .. " -t author"
+  local folder_path = vim.loop.cwd()
+  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. row .. " -e " .. row .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -169,8 +173,10 @@ function A.get_topn_contexts_range(start, end_line)
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
+  local folder_path = vim.loop.cwd()
   local command = "context-pilot "
     .. file_path
+    .. folder_path
     .. " -s "
     .. start
     .. " -e "
@@ -192,7 +198,8 @@ function A.get_topn_contexts_current_line()
   -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
-  local command = "context-pilot " .. file_path .. " -s " .. row .. " -e " .. row .. " -t file"
+  local folder_path = vim.loop.cwd()
+  local command = "context-pilot " .. file_path .. folder_path .. " -s " .. row .. " -e " .. row .. " -t file"
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
