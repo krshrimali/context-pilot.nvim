@@ -35,7 +35,7 @@ local function telescope_picker(title)
       file_ignore_patterns = {},
       sorter = sorters.get_fzy_sorter(),
       -- previewer = previewers.bat.new(),
-      prompt_title = "ContextGPT Output " .. title,
+      prompt_title = "ContextPilot Output " .. title,
       finder = finders.new_table({
         results = A.autorun_data,
       }),
@@ -60,8 +60,6 @@ end
 -- end
 
 local append_data = function(_, _data)
-  print("Appending data")
-  print(_data.ipairs)
   if #_data ~= 0 then
     for _, l in ipairs(_data) do
       -- notify_inform("Message: " .. l)
@@ -76,7 +74,7 @@ local append_data = function(_, _data)
       telescope_picker(A.current_title)
       -- telescope_pickers
       --   .new(opts, {
-      --     prompt_title = "ContextGPT",
+      --     prompt_title = "ContextPilot",
       --     finder = finders.new_table({
       --       results = A.autorun_data,
       --     }),
@@ -93,22 +91,16 @@ function A.get_topn_contexts()
 
   local current_buffer = vim.api.nvim_get_current_buf()
 
-  -- Get the buffer name (file path)
-  local buffer_name = vim.api.nvim_buf_get_name(current_buffer)
+  local file_path = vim.api.nvim_buf_get_name(0)
 
-  -- Get the full path of the buffer
-  local full_path = vim.fn.expand(buffer_name)
-  local command = "context-pilot " .. full_path .. " -s " .. 1 .. " -e " .. 0 .. " -t file"
-  -- local output_buffer = vim.api.nvim_create_buf(false, true)
-
-  -- notify_inform("Command: " .. command)
+  local folder_path = vim.loop.cwd()
+  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. 1 .. " -e " .. 0 .. " -t file"
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
     on_stdout = append_data,
     -- on_stderr = append_data,
   })
-  -- pickFiles(files)
 end
 
 function A.get_topn_authors()
@@ -163,13 +155,11 @@ function A.get_topn_authors_current_line()
   local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
   A.current_title = "Top Authors for current line " .. row
   notify_inform("Getting top authors for " .. A.current_title)
-  -- notify_inform("Getting info for: " .. row .. " and end: " .. row)
-  -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. row .. " -e " .. row .. " -t author"
-  -- local output_buffer = vim.api.nvim_create_buf(false, true)
+
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
@@ -183,8 +173,6 @@ function A.get_topn_contexts_range(start, end_line)
   A.autorun_data = {}
   A.current_title = "Top Files for range (" .. start .. ", " .. end_line .. ")"
   notify_inform("Getting top files for " .. A.current_title)
-  -- notify_inform("Getting info for: " .. row .. " and end: " .. row)
-  -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
@@ -197,6 +185,7 @@ function A.get_topn_contexts_range(start, end_line)
     .. " -e "
     .. end_line
     .. " -t file"
+
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
@@ -210,7 +199,6 @@ function A.get_topn_contexts_current_line()
   local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
   A.current_title = "Top Files for current line " .. row
   notify_inform("Getting top files for " .. A.current_title)
-  -- vim.api.nvim_command("vnew")
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
