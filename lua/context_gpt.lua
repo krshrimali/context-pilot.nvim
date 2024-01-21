@@ -99,7 +99,16 @@ function A.get_topn_contexts()
 
   -- Get the full path of the buffer
   local full_path = vim.fn.expand(buffer_name)
-  local command = "context-pilot " .. full_path .. " -s " .. 1 .. " -e " .. 0 .. " -t file"
+  local folder_path = vim.loop.cwd()
+  local command = "context-pilot "
+    .. full_path
+    .. " "
+    .. folder_path
+    .. " -s "
+    .. 1
+    .. " -e "
+    .. 0
+    .. " -t file"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
 
   -- notify_inform("Command: " .. command)
