@@ -60,13 +60,14 @@ end
 -- end
 
 local append_data = function(_, _data)
-  print("Appending data")
-  print(_data.ipairs)
+  -- print("Appending data")
+  -- print(_data.ipairs)
   if #_data ~= 0 then
     for _, l in ipairs(_data) do
       -- notify_inform("Message: " .. l)
       for file_path in string.gmatch(l, "([^,]+)") do
         file_path = file_path:gsub('"', "")
+        if file_path:len() == 0 then break end
         table.insert(A.autorun_data, file_path)
       end
     end
@@ -119,7 +120,15 @@ function A.get_topn_authors()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. 1 .. " -e " .. 0 .. " -t author"
+  local command = "context-pilot "
+    .. file_path
+    .. " "
+    .. folder_path
+    .. " -s "
+    .. 1
+    .. " -e "
+    .. 0
+    .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -168,7 +177,15 @@ function A.get_topn_authors_current_line()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. row .. " -e " .. row .. " -t author"
+  local command = "context-pilot "
+    .. file_path
+    .. " "
+    .. folder_path
+    .. " -s "
+    .. row
+    .. " -e "
+    .. row
+    .. " -t author"
   -- local output_buffer = vim.api.nvim_create_buf(false, true)
   vim.fn.jobstart(command, {
     stderr_buffered = true,
@@ -214,7 +231,15 @@ function A.get_topn_contexts_current_line()
 
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  local command = "context-pilot " .. file_path .. " " .. folder_path .. " -s " .. row .. " -e " .. row .. " -t file"
+  local command = "context-pilot "
+    .. file_path
+    .. " "
+    .. folder_path
+    .. " -s "
+    .. row
+    .. " -e "
+    .. row
+    .. " -t file"
   vim.fn.jobstart(command, {
     stderr_buffered = true,
     stdout_buffered = true,
