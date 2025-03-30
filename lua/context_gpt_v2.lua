@@ -35,6 +35,10 @@ end
 
 -- Output collector
 local append_data = function(_, _data)
+  notify_inform("Raw output:")
+  for _, line in ipairs(_data) do
+    notify_inform(line)
+  end
   if #_data == 0 then return end
 
   for _, line in ipairs(_data) do
