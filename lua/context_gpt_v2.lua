@@ -91,6 +91,7 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
   vim.fn.jobstart(command, {
     stdout_buffered = true,
     stderr_buffered = true,
+    pty = true,
     on_stdout = append_data,
   })
 end
