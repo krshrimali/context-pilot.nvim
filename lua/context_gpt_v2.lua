@@ -65,7 +65,7 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
   notify_inform("Fetching: " .. title)
 
   local command = build_command(file_path, folder_path, start, end_, mode)
-  vim.notify("Running: " .. command, vim.log.levels.INFO)
+  notify_inform("Command: " .. command)
 
   vim.fn.jobstart(command, {
     stdout_buffered = true,
