@@ -104,7 +104,7 @@ function A.get_topn_contexts_range(start_line, end_line)
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local title = string.format("Top Files for range (%d, %d)", start_line, end_line)
-  execute_context_pilot(file_path, folder_path, start_line, end_line, "file", title)
+  execute_context_pilot(file_path, folder_path, start_line, end_line, "query", title)
 end
 
 function A.get_topn_authors_range(start_line, end_line)
@@ -127,7 +127,7 @@ function A.get_topn_contexts_current_line()
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local title = "Top Files for current line " .. row
-  execute_context_pilot(file_path, folder_path, row, row, "file", title)
+  execute_context_pilot(file_path, folder_path, row, row, "query", title)
 end
 
 function A.query_context_for_range(start_line, end_line)
