@@ -33,49 +33,40 @@ end
 --     :find()
 -- end
 --
+local actions = require("telescope.actions")
+local action_state = require("telescope.actions.state")
+
 local function telescope_picker(title)
-  local displayer = entry_display.create({
-    separator = " ",
-    items = {
-      { width = 50 }, -- file path
-      { remaining = true }, -- occurrences
-    },
-  })
-
-  local function make_display(entry)
-    return displayer({
-      entry.filename,
-      entry.count .. " occurrences",
-    })
-  end
-
   telescope_pickers
     .new({}, {
       prompt_title = "ContextGPT Output: " .. title,
       sorter = sorters.get_fzy_sorter(),
       finder = finders.new_table({
         results = A.autorun_data,
-        entry_maker = function(line)
-          local filepath, count = line:match("^(.-) %((%d+) occurrences%)$")
-          filepath = filepath or line
-          count = count or "0"
+        entry_maker = function(entry)
+          -- Defensive parsing
+          local filepath, count = entry:match("^(.-)%s+%((%d+)%s+occurrences%)$")
+          if not filepath then
+            filepath = entry -- fallback to whole line
+            count = "0"
+          end
 
           return {
-            value = line,
+            value = entry,
             ordinal = filepath,
-            display = function() return string.format("%-60s %s occurrences", filepath, count) end,
-            filename = filepath,
-            count = count,
+            display = string.format("%-60s %s occurrences", filepath, count),
             path = filepath,
           }
         end,
       }),
-      attach_mappings = function(prompt_bufnr, map)
+      attach_mappings = function(prompt_bufnr, _)
         actions.select_default:replace(function()
           actions.close(prompt_bufnr)
           local selection = action_state.get_selected_entry()
           if selection and selection.path then
             vim.cmd("edit " .. vim.fn.fnameescape(selection.path))
+          else
+            vim.api.nvim_notify("No path to open", vim.log.levels.WARN, {})
           end
         end)
         return true
