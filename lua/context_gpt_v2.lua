@@ -43,12 +43,13 @@ local append_data = function(_, _data)
 
     -- Expecting format: path - count occurrences
     local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
-    notify_inform("File path: " .. file_path)
-    notify_inform("Count: " .. count)
 
     if file_path and count then
+      notify_inform("File path: " .. file_path)
+      notify_inform("Count: " .. count)
       table.insert(A.autorun_data, string.format("%s (%s occurrences)", file_path, count))
     else
+      notify_inform("Line: " .. line)
       -- Fallback if it's not in that format (e.g., first line of output, maybe just the filename)
       table.insert(A.autorun_data, line)
     end
