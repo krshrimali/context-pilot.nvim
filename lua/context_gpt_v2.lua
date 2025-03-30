@@ -51,6 +51,8 @@ local append_data = function(_, _data)
     end
     ::continue::
   end
+  -- print a message
+  notify_inform("Fetched " .. #_data .. " lines of data")
 
   if #A.autorun_data > 0 then telescope_picker(A.current_title) end
 end
