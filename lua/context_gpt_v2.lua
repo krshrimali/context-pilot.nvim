@@ -38,9 +38,9 @@ local append_data = function(_, _data)
   if #_data == 0 then return end
 
   for _, line in ipairs(_data) do
-    notify_inform("Line: " .. line)
     -- Skip if empty
     if line:match("^%s*$") then goto continue end
+    notify_inform("Line: " .. line)
 
     -- Expecting format: path - count occurrences
     local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
