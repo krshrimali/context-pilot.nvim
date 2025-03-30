@@ -57,10 +57,13 @@ local function telescope_picker(title)
         results = A.autorun_data,
         entry_maker = function(line)
           local filepath, count = line:match("^(.-) %((%d+) occurrences%)$")
+          filepath = filepath or line
+          count = count or "0"
+
           return {
             value = line,
             ordinal = filepath,
-            display = make_display,
+            display = function() return string.format("%-60s %s occurrences", filepath, count) end,
             filename = filepath,
             count = count,
             path = filepath,
