@@ -36,12 +36,22 @@ end
 -- Output collector
 local append_data = function(_, _data)
   if #_data == 0 then return end
+
   for _, line in ipairs(_data) do
-    for file_path in string.gmatch(line, "([^,]+)") do
-      file_path = file_path:gsub('"', ""):gsub("\n", "")
-      if file_path:len() > 0 then table.insert(A.autorun_data, file_path) end
+    -- Skip if empty
+    if line:match("^%s*$") then goto continue end
+
+    -- Expecting format: path - count occurrences
+    local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
+    if file_path and count then
+      table.insert(A.autorun_data, string.format("%s (%s occurrences)", file_path, count))
+    else
+      -- Fallback if it's not in that format (e.g., first line of output, maybe just the filename)
+      table.insert(A.autorun_data, line)
     end
+    ::continue::
   end
+
   if #A.autorun_data > 0 then telescope_picker(A.current_title) end
 end
 
