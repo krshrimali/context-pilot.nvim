@@ -79,7 +79,7 @@ end
 function A.get_topn_contexts()
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
-  execute_context_pilot(file_path, folder_path, 1, 0, "file", "Top Files for whole file")
+  execute_context_pilot(file_path, folder_path, 1, 0, "query", "Top Files for whole file")
 end
 
 function A.get_topn_authors()
