@@ -126,15 +126,3 @@ function A.query_context_for_range(start_line, end_line)
 end
 
 return A
-
-vim.api.nvim_create_user_command("ContextAuthorsRange", function(opts)
-  require("context-pilot").get_topn_authors_range(opts.line1, opts.line2)
-end, { range = true })
-
-vim.api.nvim_create_user_command("ContextFilesRange", function(opts)
-  require("context-pilot").get_topn_contexts_range(opts.line1, opts.line2)
-end, { range = true })
-
-vim.api.nvim_create_user_command("ContextQueryRange", function(opts)
-  require("context-pilot").query_context_for_range(opts.line1, opts.line2)
-end, { range = true })
