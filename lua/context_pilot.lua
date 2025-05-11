@@ -53,6 +53,29 @@ local function update_floating_window(text)
   end
 end
 
+local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+local spinner_index = 1
+local spinner_timer
+
+local function start_spinner_minimal(msg)
+  spinner_index = 1
+  spinner_timer = vim.loop.new_timer()
+  spinner_timer:start(0, 120, vim.schedule_wrap(function()
+    local spinner = spinner_frames[spinner_index]
+    spinner_index = (spinner_index % #spinner_frames) + 1
+    vim.api.nvim_echo({{spinner .. " " .. msg, "None"}}, false, {})
+  end))
+end
+
+local function stop_spinner_minimal(final_msg)
+  if spinner_timer then
+    spinner_timer:stop()
+    spinner_timer:close()
+    spinner_timer = nil
+  end
+  vim.api.nvim_echo({{final_msg, "None"}}, false, {})
+end
+
 local function start_spinner()
   spinner_index = 1
   extracted_files = {}
@@ -83,6 +106,29 @@ local function stop_spinner()
       vim.api.nvim_win_close(progress_win, true)
     end
   end, 2000)
+end
+
+local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+local spinner_index = 1
+local spinner_timer
+
+local function start_spinner_minimal(msg)
+  spinner_index = 1
+  spinner_timer = vim.loop.new_timer()
+  spinner_timer:start(0, 120, vim.schedule_wrap(function()
+    local spinner = spinner_frames[spinner_index]
+    spinner_index = (spinner_index % #spinner_frames) + 1
+    vim.api.nvim_echo({{spinner .. " " .. msg, "None"}}, false, {})
+  end))
+end
+
+local function stop_spinner_minimal(final_msg)
+  if spinner_timer then
+    spinner_timer:stop()
+    spinner_timer:close()
+    spinner_timer = nil
+  end
+  vim.api.nvim_echo({{final_msg, "None"}}, false, {})
 end
 
 local function telescope_picker(title)
@@ -149,27 +195,35 @@ end
 local function execute_context_pilot(file_path, folder_path, start, end_, mode, title)
   A.autorun_data = {}
   A.current_title = title
-  notify_inform("Fetching: " .. title)
+  -- notify_inform("Fetching: " .. title)
 
   local command = build_command(file_path, folder_path, start, end_, mode)
-  notify_inform("Command: " .. command)
+  -- notify_inform("Command: " .. command)
 
-  start_spinner()
+  if mode == "query" then
+    -- minimal spinner for queries
+    start_spinner_minimal("Processing query...")
+  else
+    -- your existing floating window spinner for indexing
+    start_spinner()
+  end
 
   vim.fn.jobstart(command, {
-    stdout_buffered = true, -- <-- BUFFERED MUST BE TRUE
+    stdout_buffered = true,
     stderr_buffered = true,
-    pty = false, -- recommended false to avoid terminal issues
-    on_stdout = append_data, -- Accumulate only
+    pty = false,
+    on_stdout = append_data,
     on_exit = function(_, exit_code)
-      stop_spinner()
+      if mode == "query" then
+        stop_spinner_minimal("✅ Query complete!")
+      else
+        stop_spinner()
+      end
+
       if exit_code ~= 0 then
         notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
-      else
-        -- Call Telescope exactly once after completion
-        if #A.autorun_data > 0 and A.current_title ~= "Start Indexing your Workspace" then
-          telescope_picker(A.current_title)
-        end
+      elseif #A.autorun_data > 0 and mode ~= "index" then
+        telescope_picker(A.current_title)
       end
     end,
   })
