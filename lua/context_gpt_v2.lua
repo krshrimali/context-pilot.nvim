@@ -82,14 +82,15 @@ local append_data = function(_, _data)
     end
     ::continue::
   end
-  -- print a message
-
+  -- If there's data and it's not an indexing operation, launch the picker.
   if #A.autorun_data > 0 then telescope_picker(A.current_title) end
 end
 
 -- Build CLI command
 local function build_command(file_path, folder_path, start, end_, mode)
-  if mode == "index" then return string.format("%s %s -t %s", A.command, folder_path, mode) end
+  if mode == "index" then
+    return string.format("%s %s -t %s", A.command, folder_path, mode)
+  end
   return string.format(
     "%s %s -t %s %s -s %d -e %d",
     A.command,
@@ -115,6 +116,11 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
     stderr_buffered = true,
     pty = true,
     on_stdout = append_data,
+    on_exit = function(_, exit_code, _)
+      if mode == "index" then
+        notify_inform("Indexing completed", vim.log.levels.INFO)
+      end
+    end,
   })
 end
 
