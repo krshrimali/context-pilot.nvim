@@ -6,18 +6,6 @@ ContextPilot helps you quickly find contextually relevant files based on your cu
 
 ## 📦 Installation
 
-### Using **Packer**:
-
-```lua
-use {
-  "krshrimali/context-pilot.nvim",
-  requires = {
-    "nvim-telescope/telescope.nvim",
-    "nvim-telescope/telescope-fzy-native.nvim"
-  }
-}
-```
-
 ### Using **lazy.nvim**:
 
 ```lua
@@ -26,7 +14,10 @@ use {
   dependencies = {
     "nvim-telescope/telescope.nvim",
     "nvim-telescope/telescope-fzy-native.nvim"
-  }
+  },
+  config = function()
+    require("context_pilot")
+  end
 }
 ```
 
