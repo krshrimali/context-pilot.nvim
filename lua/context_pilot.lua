@@ -60,11 +60,15 @@ local spinner_timer
 local function start_spinner_minimal(msg)
   spinner_index = 1
   spinner_timer = vim.loop.new_timer()
-  spinner_timer:start(0, 120, vim.schedule_wrap(function()
-    local spinner = spinner_frames[spinner_index]
-    spinner_index = (spinner_index % #spinner_frames) + 1
-    vim.api.nvim_echo({{spinner .. " " .. msg, "None"}}, false, {})
-  end))
+  spinner_timer:start(
+    0,
+    120,
+    vim.schedule_wrap(function()
+      local spinner = spinner_frames[spinner_index]
+      spinner_index = (spinner_index % #spinner_frames) + 1
+      vim.api.nvim_echo({ { spinner .. " " .. msg, "None" } }, false, {})
+    end)
+  )
 end
 
 local function stop_spinner_minimal(final_msg)
@@ -73,7 +77,7 @@ local function stop_spinner_minimal(final_msg)
     spinner_timer:close()
     spinner_timer = nil
   end
-  vim.api.nvim_echo({{final_msg, "None"}}, false, {})
+  vim.api.nvim_echo({ { final_msg, "None" } }, false, {})
 end
 
 local function start_spinner()
@@ -115,11 +119,15 @@ local spinner_timer
 local function start_spinner_minimal(msg)
   spinner_index = 1
   spinner_timer = vim.loop.new_timer()
-  spinner_timer:start(0, 120, vim.schedule_wrap(function()
-    local spinner = spinner_frames[spinner_index]
-    spinner_index = (spinner_index % #spinner_frames) + 1
-    vim.api.nvim_echo({{spinner .. " " .. msg, "None"}}, false, {})
-  end))
+  spinner_timer:start(
+    0,
+    120,
+    vim.schedule_wrap(function()
+      local spinner = spinner_frames[spinner_index]
+      spinner_index = (spinner_index % #spinner_frames) + 1
+      vim.api.nvim_echo({ { spinner .. " " .. msg, "None" } }, false, {})
+    end)
+  )
 end
 
 local function stop_spinner_minimal(final_msg)
@@ -128,7 +136,7 @@ local function stop_spinner_minimal(final_msg)
     spinner_timer:close()
     spinner_timer = nil
   end
-  vim.api.nvim_echo({{final_msg, "None"}}, false, {})
+  vim.api.nvim_echo({ { final_msg, "None" } }, false, {})
 end
 
 local function telescope_picker(title)
@@ -172,6 +180,8 @@ local function append_data(_, data)
   if not data then return end
   for _, line in ipairs(data) do
     line = line:gsub("\r", "")
+    local extracted_path = line:match("^Extracted details for file:%s+(.-)$")
+    if extracted_path then table.insert(extracted_files, extracted_path) end
     local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
     if file_path and count then
       table.insert(A.autorun_data, string.format("%s (%s occurrences)", file_path, count))
@@ -209,7 +219,7 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
   end
 
   vim.fn.jobstart(command, {
-    stdout_buffered = true,
+    stdout_buffered = false,
     stderr_buffered = true,
     pty = false,
     on_stdout = append_data,
