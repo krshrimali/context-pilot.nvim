@@ -202,7 +202,7 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
       elseif #A.autorun_data > 0 and mode ~= "index" then
         -- Sort by count ascending (most occurrences at bottom)
         table.sort(A.autorun_data, function(a, b)
-          return a.count < b.count
+          return a.count > b.count
         end)
 
         -- Convert back to display strings
