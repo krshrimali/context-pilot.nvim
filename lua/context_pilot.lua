@@ -53,8 +53,6 @@ local function update_floating_window(text)
   end
 end
 
-local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
-local spinner_index = 1
 local spinner_timer
 
 local function start_spinner_minimal(msg)
@@ -112,33 +110,6 @@ local function stop_spinner()
   end, 2000)
 end
 
-local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
-local spinner_index = 1
-local spinner_timer
-
-local function start_spinner_minimal(msg)
-  spinner_index = 1
-  spinner_timer = vim.loop.new_timer()
-  spinner_timer:start(
-    0,
-    120,
-    vim.schedule_wrap(function()
-      local spinner = spinner_frames[spinner_index]
-      spinner_index = (spinner_index % #spinner_frames) + 1
-      vim.api.nvim_echo({ { spinner .. " " .. msg, "None" } }, false, {})
-    end)
-  )
-end
-
-local function stop_spinner_minimal(final_msg)
-  if spinner_timer then
-    spinner_timer:stop()
-    spinner_timer:close()
-    spinner_timer = nil
-  end
-  vim.api.nvim_echo({ { final_msg, "None" } }, false, {})
-end
-
 local function telescope_picker(title)
   telescope_pickers
     .new({}, {
@@ -184,7 +155,7 @@ local function append_data(_, data)
     if extracted_path then table.insert(extracted_files, extracted_path) end
     local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
     if file_path and count then
-      table.insert(A.autorun_data, string.format("%s (%s occurrences)", file_path, count))
+      table.insert(A.autorun_data, { path = file_path, count = tonumber(count) })
     end
   end
 end
@@ -205,16 +176,12 @@ end
 local function execute_context_pilot(file_path, folder_path, start, end_, mode, title)
   A.autorun_data = {}
   A.current_title = title
-  -- notify_inform("Fetching: " .. title)
 
   local command = build_command(file_path, folder_path, start, end_, mode)
-  -- notify_inform("Command: " .. command)
 
   if mode == "query" then
-    -- minimal spinner for queries
     start_spinner_minimal("Processing query...")
   else
-    -- your existing floating window spinner for indexing
     start_spinner()
   end
 
@@ -233,6 +200,16 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
       if exit_code ~= 0 then
         notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
       elseif #A.autorun_data > 0 and mode ~= "index" then
+        -- Sort by count ascending (most occurrences at bottom)
+        table.sort(A.autorun_data, function(a, b)
+          return a.count < b.count
+        end)
+
+        -- Convert back to display strings
+        for i, entry in ipairs(A.autorun_data) do
+          A.autorun_data[i] = string.format("%s (%d occurrences)", entry.path, entry.count)
+        end
+
         telescope_picker(A.current_title)
       end
     end,
