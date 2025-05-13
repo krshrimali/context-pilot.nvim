@@ -1,6 +1,6 @@
 local A = {}
 
-A.command = "context_pilot"
+A.command = "contextpilot"
 A.current_title = ""
 A.autorun_data = {}
 

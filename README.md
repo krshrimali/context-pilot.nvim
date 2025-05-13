@@ -16,7 +16,7 @@ ContextPilot helps you quickly find contextually relevant files based on your cu
     "nvim-telescope/telescope-fzy-native.nvim"
   },
   config = function()
-    require("context_pilot")
+    require("contextpilot")
   end
 }
 ```
