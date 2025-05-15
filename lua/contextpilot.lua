@@ -3,6 +3,7 @@ local A = {}
 A.command = "contextpilot"
 A.current_title = ""
 A.autorun_data = {}
+A.desc_picker = {}
 
 local telescope_pickers = require("telescope.pickers")
 local finders = require("telescope.finders")
@@ -249,20 +250,122 @@ function A.start_indexing()
   execute_context_pilot("", folder_path, 0, 0, "index", "Start Indexing your Workspace")
 end
 
-vim.api.nvim_create_user_command("ContextPilotContexts", function() A.get_topn_contexts() end, {})
+local telescope_pickers = require("telescope.pickers")
+local finders = require("telescope.finders")
+local previewers = require("telescope.previewers")
+local sorters = require("telescope.sorters")
+local actions = require("telescope.actions")
+local action_state = require("telescope.actions.state")
+local json = vim.json
 
+-- Use vim.json or vim.fn.json_decode for parsing (Neovim ≥0.7)
+local function append_desc_data(_, data)
+  if not data then return end
+  local raw = table.concat(data, "\n")
+  if not raw or raw:match("^%s*$") then return end
+
+  local ok, parsed = pcall(vim.json.decode, raw)
+  if ok and type(parsed) == "table" then
+    A.desc_data = parsed
+  else
+    vim.api.nvim_notify("Failed to parse contextpilot desc JSON output", vim.log.levels.ERROR, {})
+  end
+end
+
+
+local function telescope_desc_picker(title)
+  telescope_pickers.new({}, {
+    prompt_title = "ContextPilot Descriptions: " .. title,
+    finder = finders.new_table({
+      results = A.desc_data,
+      entry_maker = function(entry)
+        return {
+          value = entry,     -- {commit_title, commit_desc}
+          ordinal = entry[1],
+          display = entry[1],
+          desc = entry[2],
+        }
+      end,
+    }),
+    sorter = sorters.get_fzy_sorter(),
+    previewer = previewers.new_buffer_previewer({
+      define_preview = function(self, entry)
+        local desc = entry.desc or ""
+        local lines = {}
+        for line in tostring(desc):gmatch("[^\r\n]+") do
+          table.insert(lines, line)
+        end
+        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_set_option(self.state.bufnr, 'filetype', 'markdown')
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr, _)
+      actions.select_default:replace(function()
+        actions.close(prompt_bufnr)
+        local selection = action_state.get_selected_entry()
+        -- you can extend what happens on <CR>
+      end)
+      return true
+    end,
+  })
+  :find()
+end
+
+function A.query_descriptions_for_range(start_line, end_line)
+  local file_path = vim.api.nvim_buf_get_name(0)
+  local folder_path = vim.loop.cwd()
+  local title = string.format("Descriptions (%d-%d)", start_line, end_line)
+  A.desc_data = {}
+
+  -- Note: format according to your contextpilot usage
+  local command = string.format(
+    "%s %s -t desc %s -s %d -e %d",
+    A.command,
+    folder_path,
+    file_path,
+    start_line,
+    end_line
+  )
+
+  start_spinner_minimal("Processing descriptions...")
+  vim.fn.jobstart(command, {
+    stdout_buffered = true,
+    on_stdout = append_desc_data,
+    on_exit = function(_, exit_code)
+      stop_spinner_minimal("✅ Descriptions retrieved.")
+      if exit_code ~= 0 then
+        notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
+      elseif #A.desc_data > 0 then
+        telescope_desc_picker(title)
+      else
+        notify_inform("No descriptions found.", vim.log.levels.WARN)
+      end
+    end,
+  })
+end
+
+vim.api.nvim_create_user_command("ContextPilotContexts", function() A.get_topn_contexts() end, {})
 vim.api.nvim_create_user_command(
   "ContextPilotContextsCurrentLine",
   function() A.get_topn_contexts_current_line() end,
   {}
 )
-
 vim.api.nvim_create_user_command("ContextPilotStartIndexing", function() A.start_indexing() end, {})
-
 vim.api.nvim_create_user_command("ContextPilotQueryRange", function(opts)
   local start_line = tonumber(opts.line1)
   local end_line = tonumber(opts.line2)
   A.query_context_for_range(start_line, end_line)
 end, { range = true })
+
+
+vim.api.nvim_create_user_command(
+  "ContextPilotDescRange",
+  function(opts)
+    local start_line = tonumber(opts.line1)
+    local end_line = tonumber(opts.line2)
+    A.query_descriptions_for_range(start_line, end_line)
+  end,
+  { range = true }
+)
 
 return A
