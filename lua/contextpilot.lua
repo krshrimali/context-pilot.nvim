@@ -344,6 +344,128 @@ function A.query_descriptions_for_range(start_line, end_line)
   })
 end
 
+
+function A.start_indexing_subdirectory()
+  local cwd = vim.loop.cwd()
+  local plenary_scan = require("plenary.scandir")
+
+  -- Recursively get all non-hidden subdirectories
+  local all_dirs = plenary_scan.scan_dir(cwd, {
+    hidden = false,
+    depth = 10,
+    add_dirs = true,
+    only_dirs = true,
+  })
+
+  local relative_dirs = {}
+  for _, full_path in ipairs(all_dirs) do
+    local rel_path = vim.fn.fnamemodify(full_path, ":.")
+    if not rel_path:match("^%.") then  -- exclude hidden folders
+      table.insert(relative_dirs, rel_path)
+    end
+  end
+
+  if #relative_dirs == 0 then
+    notify_inform("No subdirectories found in the workspace.", vim.log.levels.WARN)
+    return
+  end
+
+  local function render_tree(path, prefix)
+    local lines = {}
+    local items = plenary_scan.scan_dir(path, {
+      depth = 1,
+      hidden = false,
+      add_dirs = true,
+    })
+    table.sort(items)
+
+    for _, item in ipairs(items) do
+      local name = vim.fn.fnamemodify(item, ":t")
+      if name:sub(1, 1) ~= "." then
+        local is_dir = vim.fn.isdirectory(item) == 1
+        if is_dir then
+          table.insert(lines, prefix .. "📁 " .. name)
+          local sub = render_tree(item, prefix .. "  ├─ ")
+          vim.list_extend(lines, sub)
+        else
+          table.insert(lines, prefix .. "  ├─ " .. name)
+        end
+      end
+    end
+
+    return lines
+  end
+
+  telescope_pickers.new({}, {
+    prompt_title = "Select Subdirectories to Index",
+    finder = finders.new_table {
+      results = relative_dirs,
+      entry_maker = function(entry)
+        return {
+          value = entry,
+          ordinal = entry,
+          display = entry,
+        }
+      end,
+    },
+    sorter = sorters.get_fzy_sorter(),
+    previewer = require("telescope.previewers").new_buffer_previewer({
+      define_preview = function(self, entry)
+        local path = entry.value
+        local abs_path = vim.fn.fnamemodify(path, ":p")
+        local contents = render_tree(abs_path, "")
+        if #contents == 0 then
+          contents = { "(empty folder)" }
+        end
+        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, contents)
+        vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr, _)
+      actions.select_default:replace(function()
+        local picker = action_state.get_current_picker(prompt_bufnr)
+        local selections = picker:get_multi_selection()
+
+        if #selections == 0 then
+          local selected = action_state.get_selected_entry()
+          if selected then table.insert(selections, selected) end
+        end
+
+        actions.close(prompt_bufnr)
+
+        if #selections == 0 then
+          notify_inform("No subdirectories selected.", vim.log.levels.WARN)
+          return
+        end
+
+        local selected_dirs = vim.tbl_map(function(entry)
+          return entry.value
+        end, selections)
+
+        local index_arg = table.concat(selected_dirs, ",")
+        local command = string.format('%s %s -t index -i "%s"', A.command, cwd, index_arg)
+
+        A.current_title = "Index Subdirectories: " .. index_arg
+        A.autorun_data = {}
+
+        start_spinner()
+        vim.fn.jobstart(command, {
+          stdout_buffered = false,
+          stderr_buffered = true,
+          on_stdout = append_data,
+          on_exit = function(_, exit_code)
+            stop_spinner()
+            if exit_code ~= 0 then
+              notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
+            end
+          end,
+        })
+      end)
+      return true
+    end,
+  }):find()
+end
+
 vim.api.nvim_create_user_command("ContextPilotContexts", function() A.get_topn_contexts() end, {})
 vim.api.nvim_create_user_command(
   "ContextPilotContextsCurrentLine",
@@ -367,5 +489,9 @@ vim.api.nvim_create_user_command(
   end,
   { range = true }
 )
+
+vim.api.nvim_create_user_command("ContextPilotIndexSubDirectory", function()
+  A.start_indexing_subdirectory()
+end, {})
 
 return A
