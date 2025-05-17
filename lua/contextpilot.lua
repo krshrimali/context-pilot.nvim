@@ -202,9 +202,7 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
         notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
       elseif #A.autorun_data > 0 and mode ~= "index" then
         -- Sort by count ascending (most occurrences at bottom)
-        table.sort(A.autorun_data, function(a, b)
-          return a.count > b.count
-        end)
+        table.sort(A.autorun_data, function(a, b) return a.count > b.count end)
 
         -- Convert back to display strings
         for i, entry in ipairs(A.autorun_data) do
@@ -272,19 +270,26 @@ local function append_desc_data(_, data)
   end
 end
 
-
 local function parse_date_str(date_str)
   -- Assumes format like: "Fri May 17 15:44:01 2024"
   local pattern = "(%a+)%s+(%a+)%s+(%d+)%s+(%d+):(%d+):(%d+)%s+(%d+)"
-  local _, _, _, month_str, day, hour, min, sec, year =
-    date_str:find(pattern)
+  local _, _, _, month_str, day, hour, min, sec, year = date_str:find(pattern)
 
   if not year then return 0 end
 
   local month_map = {
-    Jan = 1, Feb = 2, Mar = 3, Apr = 4,
-    May = 5, Jun = 6, Jul = 7, Aug = 8,
-    Sep = 9, Oct = 10, Nov = 11, Dec = 12,
+    Jan = 1,
+    Feb = 2,
+    Mar = 3,
+    Apr = 4,
+    May = 5,
+    Jun = 6,
+    Jul = 7,
+    Aug = 8,
+    Sep = 9,
+    Oct = 10,
+    Nov = 11,
+    Dec = 12,
   }
   local month = month_map[month_str] or 1
 
@@ -302,54 +307,57 @@ local function telescope_desc_picker(title)
   notify_inform("Sorted by Date (newest first)", vim.log.levels.INFO)
 
   -- Sort by parsed datetime descending
-  table.sort(A.desc_data, function(a, b)
-    return parse_date_str(a[4] or "") > parse_date_str(b[4] or "")
-  end)
+  table.sort(
+    A.desc_data,
+    function(a, b) return parse_date_str(a[4] or "") > parse_date_str(b[4] or "") end
+  )
 
-  telescope_pickers.new({}, {
-    prompt_title = "ContextPilot Descriptions: " .. title,
-    finder = finders.new_table({
-      results = A.desc_data,
-      entry_maker = function(entry)
-        return {
-          value = entry,
-          ordinal = (entry[1] or "") .. " " .. (entry[3] or "") .. " " .. (entry[4] or ""),
-          display = entry[1] or "(no title)",
-          title = entry[1] or "",
-          desc = entry[2] or "",
-          author = entry[3] or "",
-          date = entry[4] or "",
-        }
+  telescope_pickers
+    .new({}, {
+      prompt_title = "ContextPilot Descriptions: " .. title,
+      finder = finders.new_table({
+        results = A.desc_data,
+        entry_maker = function(entry)
+          return {
+            value = entry,
+            ordinal = (entry[1] or "") .. " " .. (entry[3] or "") .. " " .. (entry[4] or ""),
+            display = entry[1] or "(no title)",
+            title = entry[1] or "",
+            desc = entry[2] or "",
+            author = entry[3] or "",
+            date = entry[4] or "",
+          }
+        end,
+      }),
+      sorter = sorters.get_fzy_sorter(),
+      previewer = previewers.new_buffer_previewer({
+        define_preview = function(self, entry)
+          local lines = {}
+          table.insert(lines, "Title:   " .. (entry.title or ""))
+          table.insert(lines, "Author:  " .. (entry.author or ""))
+          table.insert(lines, "Date:    " .. (entry.date or ""))
+          table.insert(lines, "")
+          table.insert(lines, "Description:")
+          table.insert(lines, "----------")
+          for line in tostring(entry.desc):gmatch("[^\r\n]+") do
+            table.insert(lines, line)
+          end
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+          vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+        end,
+      }),
+      attach_mappings = function(prompt_bufnr, _)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          -- if selection then
+          --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
+          -- end
+        end)
+        return true
       end,
-    }),
-    sorter = sorters.get_fzy_sorter(),
-    previewer = previewers.new_buffer_previewer({
-      define_preview = function(self, entry)
-        local lines = {}
-        table.insert(lines, "Title:   " .. (entry.title or ""))
-        table.insert(lines, "Author:  " .. (entry.author or ""))
-        table.insert(lines, "Date:    " .. (entry.date or ""))
-        table.insert(lines, "")
-        table.insert(lines, "Description:")
-        table.insert(lines, "----------")
-        for line in tostring(entry.desc):gmatch("[^\r\n]+") do
-          table.insert(lines, line)
-        end
-        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-        vim.api.nvim_buf_set_option(self.state.bufnr, 'filetype', 'markdown')
-      end,
-    }),
-    attach_mappings = function(prompt_bufnr, _)
-      actions.select_default:replace(function()
-        actions.close(prompt_bufnr)
-        local selection = action_state.get_selected_entry()
-        -- if selection then
-        --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
-        -- end
-      end)
-      return true
-    end,
-  }):find()
+    })
+    :find()
 end
 
 function A.query_descriptions_for_range(start_line, end_line)
@@ -385,12 +393,35 @@ function A.query_descriptions_for_range(start_line, end_line)
   })
 end
 
-
 function A.start_indexing_subdirectory()
   local cwd = vim.loop.cwd()
   local plenary_scan = require("plenary.scandir")
+  local Path = require("plenary.path")
 
-  -- Recursively get all non-hidden subdirectories
+  -- Read .gitignore lines
+  local function load_gitignore_patterns(gitignore_file)
+    local ignore_list = {}
+    if vim.fn.filereadable(gitignore_file) == 1 then
+      for _, line in ipairs(vim.fn.readfile(gitignore_file)) do
+        line = vim.trim(line)
+        if line ~= "" and not line:match("^#") then table.insert(ignore_list, line) end
+      end
+    end
+    return ignore_list
+  end
+
+  -- Simple pattern matching
+  local function is_ignored(path, patterns)
+    for _, pat in ipairs(patterns) do
+      local plain = pat:gsub("%*", ".*")
+      if path:match(plain) then return true end
+    end
+    return false
+  end
+
+  local gitignore_patterns = load_gitignore_patterns(cwd .. "/.gitignore")
+
+  -- Scan all subdirs
   local all_dirs = plenary_scan.scan_dir(cwd, {
     hidden = false,
     depth = 10,
@@ -401,13 +432,13 @@ function A.start_indexing_subdirectory()
   local relative_dirs = {}
   for _, full_path in ipairs(all_dirs) do
     local rel_path = vim.fn.fnamemodify(full_path, ":.")
-    if not rel_path:match("^%.") then  -- exclude hidden folders
+    if not rel_path:match("^%.") and not is_ignored(rel_path, gitignore_patterns) then
       table.insert(relative_dirs, rel_path)
     end
   end
 
   if #relative_dirs == 0 then
-    notify_inform("No subdirectories found in the workspace.", vim.log.levels.WARN)
+    notify_inform("No subdirectories found (after .gitignore filtering).", vim.log.levels.WARN)
     return
   end
 
@@ -437,74 +468,79 @@ function A.start_indexing_subdirectory()
     return lines
   end
 
-  telescope_pickers.new({}, {
-    prompt_title = "Select Subdirectories to Index",
-    finder = finders.new_table {
-      results = relative_dirs,
-      entry_maker = function(entry)
-        return {
-          value = entry,
-          ordinal = entry,
-          display = entry,
-        }
+  telescope_pickers
+    .new({}, {
+      prompt_title = "Select Subdirectories to Index",
+      finder = finders.new_table({
+        results = relative_dirs,
+        entry_maker = function(entry)
+          return {
+            value = entry,
+            ordinal = entry,
+            display = function(_, selected)
+              local tick = selected and "✓ " or "  "
+              return tick .. entry
+            end,
+          }
+        end,
+      }),
+      sorter = sorters.get_fzy_sorter(),
+      previewer = require("telescope.previewers").new_buffer_previewer({
+        define_preview = function(self, entry)
+          local path = entry.value
+          local abs_path = vim.fn.fnamemodify(path, ":p")
+          local contents = render_tree(abs_path, "")
+          if #contents == 0 then contents = { "(empty folder)" } end
+          vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, contents)
+          vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+        end,
+      }),
+      attach_mappings = function(prompt_bufnr, map)
+        map("i", "<Tab>", actions.toggle_selection + actions.move_selection_next)
+        map("n", "<Tab>", actions.toggle_selection + actions.move_selection_next)
+
+        actions.select_default:replace(function()
+          local picker = action_state.get_current_picker(prompt_bufnr)
+          local selections = picker:get_multi_selection()
+
+          if #selections == 0 then
+            local selected = action_state.get_selected_entry()
+            if selected then table.insert(selections, selected) end
+          end
+
+          actions.close(prompt_bufnr)
+
+          if #selections == 0 then
+            notify_inform("No subdirectories selected.", vim.log.levels.WARN)
+            return
+          end
+
+          local selected_dirs = vim.tbl_map(function(entry) return entry.value end, selections)
+
+          local index_arg = table.concat(selected_dirs, ",")
+          local command = string.format('%s %s -t index -i "%s"', A.command, cwd, index_arg)
+
+          A.current_title = "Index Subdirectories: " .. index_arg
+          A.autorun_data = {}
+
+          start_spinner()
+          vim.fn.jobstart(command, {
+            stdout_buffered = false,
+            stderr_buffered = true,
+            on_stdout = append_data,
+            on_exit = function(_, exit_code)
+              stop_spinner()
+              if exit_code ~= 0 then
+                notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
+              end
+            end,
+          })
+        end)
+
+        return true
       end,
-    },
-    sorter = sorters.get_fzy_sorter(),
-    previewer = require("telescope.previewers").new_buffer_previewer({
-      define_preview = function(self, entry)
-        local path = entry.value
-        local abs_path = vim.fn.fnamemodify(path, ":p")
-        local contents = render_tree(abs_path, "")
-        if #contents == 0 then
-          contents = { "(empty folder)" }
-        end
-        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, contents)
-        vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
-      end,
-    }),
-    attach_mappings = function(prompt_bufnr, _)
-      actions.select_default:replace(function()
-        local picker = action_state.get_current_picker(prompt_bufnr)
-        local selections = picker:get_multi_selection()
-
-        if #selections == 0 then
-          local selected = action_state.get_selected_entry()
-          if selected then table.insert(selections, selected) end
-        end
-
-        actions.close(prompt_bufnr)
-
-        if #selections == 0 then
-          notify_inform("No subdirectories selected.", vim.log.levels.WARN)
-          return
-        end
-
-        local selected_dirs = vim.tbl_map(function(entry)
-          return entry.value
-        end, selections)
-
-        local index_arg = table.concat(selected_dirs, ",")
-        local command = string.format('%s %s -t index -i "%s"', A.command, cwd, index_arg)
-
-        A.current_title = "Index Subdirectories: " .. index_arg
-        A.autorun_data = {}
-
-        start_spinner()
-        vim.fn.jobstart(command, {
-          stdout_buffered = false,
-          stderr_buffered = true,
-          on_stdout = append_data,
-          on_exit = function(_, exit_code)
-            stop_spinner()
-            if exit_code ~= 0 then
-              notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
-            end
-          end,
-        })
-      end)
-      return true
-    end,
-  }):find()
+    })
+    :find()
 end
 
 vim.api.nvim_create_user_command("ContextPilotContexts", function() A.get_topn_contexts() end, {})
@@ -520,19 +556,16 @@ vim.api.nvim_create_user_command("ContextPilotQueryRange", function(opts)
   A.query_context_for_range(start_line, end_line)
 end, { range = true })
 
+vim.api.nvim_create_user_command("ContextPilotDescRange", function(opts)
+  local start_line = tonumber(opts.line1)
+  local end_line = tonumber(opts.line2)
+  A.query_descriptions_for_range(start_line, end_line)
+end, { range = true })
 
 vim.api.nvim_create_user_command(
-  "ContextPilotDescRange",
-  function(opts)
-    local start_line = tonumber(opts.line1)
-    local end_line = tonumber(opts.line2)
-    A.query_descriptions_for_range(start_line, end_line)
-  end,
-  { range = true }
+  "ContextPilotIndexSubDirectory",
+  function() A.start_indexing_subdirectory() end,
+  {}
 )
-
-vim.api.nvim_create_user_command("ContextPilotIndexSubDirectory", function()
-  A.start_indexing_subdirectory()
-end, {})
 
 return A
