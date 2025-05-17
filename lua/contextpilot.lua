@@ -395,54 +395,32 @@ end
 
 function A.start_indexing_subdirectory()
   local cwd = vim.loop.cwd()
-  local plenary_scan = require("plenary.scandir")
-  local Path = require("plenary.path")
 
-  -- Read .gitignore lines
-  local function load_gitignore_patterns(gitignore_file)
-    local ignore_list = {}
-    if vim.fn.filereadable(gitignore_file) == 1 then
-      for _, line in ipairs(vim.fn.readfile(gitignore_file)) do
-        line = vim.trim(line)
-        if line ~= "" and not line:match("^#") then table.insert(ignore_list, line) end
-      end
+  -- Parse JSON output from `contextpilot`
+  local function parse_subdirs(output)
+    local ok, result = pcall(vim.json.decode, output)
+    if not ok or type(result) ~= "table" then
+      notify_inform("Failed to parse subdirectory list from contextpilot.", vim.log.levels.ERROR)
+      return {}
     end
-    return ignore_list
+    return result
   end
 
-  -- Simple pattern matching
-  local function is_ignored(path, patterns)
-    for _, pat in ipairs(patterns) do
-      local plain = pat:gsub("%*", ".*")
-      if path:match(plain) then return true end
-    end
-    return false
-  end
-
-  local gitignore_patterns = load_gitignore_patterns(cwd .. "/.gitignore")
-
-  -- Scan all subdirs
-  local all_dirs = plenary_scan.scan_dir(cwd, {
-    hidden = false,
-    depth = 10,
-    add_dirs = true,
-    only_dirs = true,
-  })
-
-  local relative_dirs = {}
-  for _, full_path in ipairs(all_dirs) do
-    local rel_path = vim.fn.fnamemodify(full_path, ":.")
-    if not rel_path:match("^%.") and not is_ignored(rel_path, gitignore_patterns) then
-      table.insert(relative_dirs, rel_path)
-    end
-  end
-
-  if #relative_dirs == 0 then
-    notify_inform("No subdirectories found (after .gitignore filtering).", vim.log.levels.WARN)
+  local output = vim.fn.system(string.format("contextpilot %s -t listsubdirs", cwd))
+  if vim.v.shell_error ~= 0 then
+    notify_inform("Failed to list subdirectories using contextpilot.", vim.log.levels.ERROR)
     return
   end
 
+  local subdirs = parse_subdirs(output)
+  if #subdirs == 0 then
+    notify_inform("No subdirectories found from contextpilot.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Optional: preview logic
   local function render_tree(path, prefix)
+    local plenary_scan = require("plenary.scandir")
     local lines = {}
     local items = plenary_scan.scan_dir(path, {
       depth = 1,
@@ -472,13 +450,13 @@ function A.start_indexing_subdirectory()
     .new({}, {
       prompt_title = "Select Subdirectories to Index (Hit Tab to toggle selection)",
       finder = finders.new_table({
-        results = relative_dirs,
+        results = subdirs,
         entry_maker = function(entry)
           return {
             value = entry,
             ordinal = entry,
-            display = function(_, selected)
-              return entry
+            display = function(entry, _)
+              return entry.value or entry
             end,
           }
         end,
