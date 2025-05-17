@@ -273,26 +273,66 @@ local function append_desc_data(_, data)
 end
 
 
+local function parse_date_str(date_str)
+  -- Assumes format like: "Fri May 17 15:44:01 2024"
+  local pattern = "(%a+)%s+(%a+)%s+(%d+)%s+(%d+):(%d+):(%d+)%s+(%d+)"
+  local _, _, _, month_str, day, hour, min, sec, year =
+    date_str:find(pattern)
+
+  if not year then return 0 end
+
+  local month_map = {
+    Jan = 1, Feb = 2, Mar = 3, Apr = 4,
+    May = 5, Jun = 6, Jul = 7, Aug = 8,
+    Sep = 9, Oct = 10, Nov = 11, Dec = 12,
+  }
+  local month = month_map[month_str] or 1
+
+  return os.time({
+    year = tonumber(year),
+    month = tonumber(month),
+    day = tonumber(day),
+    hour = tonumber(hour),
+    min = tonumber(min),
+    sec = tonumber(sec),
+  }) or 0
+end
+
 local function telescope_desc_picker(title)
+  notify_inform("Sorted by Date (newest first)", vim.log.levels.INFO)
+
+  -- Sort by parsed datetime descending
+  table.sort(A.desc_data, function(a, b)
+    return parse_date_str(a[4] or "") > parse_date_str(b[4] or "")
+  end)
+
   telescope_pickers.new({}, {
     prompt_title = "ContextPilot Descriptions: " .. title,
     finder = finders.new_table({
       results = A.desc_data,
       entry_maker = function(entry)
         return {
-          value = entry,     -- {commit_title, commit_desc}
-          ordinal = entry[1],
-          display = entry[1],
-          desc = entry[2],
+          value = entry,
+          ordinal = (entry[1] or "") .. " " .. (entry[3] or "") .. " " .. (entry[4] or ""),
+          display = entry[1] or "(no title)",
+          title = entry[1] or "",
+          desc = entry[2] or "",
+          author = entry[3] or "",
+          date = entry[4] or "",
         }
       end,
     }),
     sorter = sorters.get_fzy_sorter(),
     previewer = previewers.new_buffer_previewer({
       define_preview = function(self, entry)
-        local desc = entry.desc or ""
         local lines = {}
-        for line in tostring(desc):gmatch("[^\r\n]+") do
+        table.insert(lines, "Title:   " .. (entry.title or ""))
+        table.insert(lines, "Author:  " .. (entry.author or ""))
+        table.insert(lines, "Date:    " .. (entry.date or ""))
+        table.insert(lines, "")
+        table.insert(lines, "Description:")
+        table.insert(lines, "----------")
+        for line in tostring(entry.desc):gmatch("[^\r\n]+") do
           table.insert(lines, line)
         end
         vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
@@ -303,12 +343,13 @@ local function telescope_desc_picker(title)
       actions.select_default:replace(function()
         actions.close(prompt_bufnr)
         local selection = action_state.get_selected_entry()
-        -- you can extend what happens on <CR>
+        -- if selection then
+        --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
+        -- end
       end)
       return true
     end,
-  })
-  :find()
+  }):find()
 end
 
 function A.query_descriptions_for_range(start_line, end_line)
