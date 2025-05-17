@@ -470,7 +470,7 @@ function A.start_indexing_subdirectory()
 
   telescope_pickers
     .new({}, {
-      prompt_title = "Select Subdirectories to Index",
+      prompt_title = "Select Subdirectories to Index (Hit Tab to toggle selection)",
       finder = finders.new_table({
         results = relative_dirs,
         entry_maker = function(entry)
@@ -478,8 +478,7 @@ function A.start_indexing_subdirectory()
             value = entry,
             ordinal = entry,
             display = function(_, selected)
-              local tick = selected and "✓ " or "  "
-              return tick .. entry
+              return entry
             end,
           }
         end,
