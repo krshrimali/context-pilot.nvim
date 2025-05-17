@@ -520,20 +520,20 @@ function A.start_indexing_subdirectory()
     :find()
 end
 
-vim.api.nvim_create_user_command("ContextPilotContexts", function() A.get_topn_contexts() end, {})
-vim.api.nvim_create_user_command(
-  "ContextPilotContextsCurrentLine",
-  function() A.get_topn_contexts_current_line() end,
-  {}
-)
+vim.api.nvim_create_user_command("ContextPilotRelevantFilesWholeFile", function() A.get_topn_contexts() end, {})
+-- vim.api.nvim_create_user_command(
+--   "ContextPilotContextsCurrentLine",
+--   function() A.get_topn_contexts_current_line() end,
+--   {}
+-- )
 vim.api.nvim_create_user_command("ContextPilotStartIndexing", function() A.start_indexing() end, {})
-vim.api.nvim_create_user_command("ContextPilotQueryRange", function(opts)
+vim.api.nvim_create_user_command("ContextPilotRelevantFilesRange", function(opts)
   local start_line = tonumber(opts.line1)
   local end_line = tonumber(opts.line2)
   A.query_context_for_range(start_line, end_line)
 end, { range = true })
 
-vim.api.nvim_create_user_command("ContextPilotDescRange", function(opts)
+vim.api.nvim_create_user_command("ContextPilotRelevantCommitsRange", function(opts)
   local start_line = tonumber(opts.line1)
   local end_line = tonumber(opts.line2)
   A.query_descriptions_for_range(start_line, end_line)
