@@ -49,14 +49,15 @@ Feel free to replace the binary path to `/usr/local/bin` based on your system.
 
 1. (Optional, for faster query results) Start indexing your workspace from Neovim:
 
-   ```lua
-   :ContextPilotStartIndexing
-   ```
+```lua
+:ContextPilotStartIndexing
+```
+   
 2. (Optional, for faster query results) OR Index some selected repositories:
 
-  ```lua
-  :ContextPilotIndexSubDirectory
-  ```
+```lua
+:ContextPilotIndexSubDirectory
+```
 
   Choose the subdirectories you want to index (hitting `Tab`) and let the indexing finish.
 
