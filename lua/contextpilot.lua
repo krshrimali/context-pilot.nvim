@@ -326,6 +326,7 @@ local function telescope_desc_picker(title)
             desc = entry[2] or "",
             author = entry[3] or "",
             date = entry[4] or "",
+            commitUrl = entry[5] or "",
           }
         end,
       }),
@@ -333,15 +334,16 @@ local function telescope_desc_picker(title)
       previewer = previewers.new_buffer_previewer({
         define_preview = function(self, entry)
           local lines = {}
-          table.insert(lines, "Title:   " .. (entry.title or ""))
-          table.insert(lines, "Author:  " .. (entry.author or ""))
-          table.insert(lines, "Date:    " .. (entry.date or ""))
+          table.insert(lines, "Title:      " .. (entry.title or ""))
+          table.insert(lines, "Author:     " .. (entry.author or ""))
+          table.insert(lines, "Date:       " .. (entry.date or ""))
           table.insert(lines, "")
           table.insert(lines, "Description:")
           table.insert(lines, "----------")
           for line in tostring(entry.desc):gmatch("[^\r\n]+") do
             table.insert(lines, line)
           end
+          table.insert(lines, "Commit URL " .. (entry.commitUrl or ""))
           vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
           vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
         end,
@@ -350,10 +352,33 @@ local function telescope_desc_picker(title)
         actions.select_default:replace(function()
           actions.close(prompt_bufnr)
           local selection = action_state.get_selected_entry()
-          -- if selection then
-          --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
-          -- end
+          if not selection then return end
+          -- Compose content
+          local lines = {}
+          table.insert(lines, "# " .. (selection.title or "(no title)"))
+          table.insert(lines, "")
+          table.insert(lines, "**Author:** " .. (selection.author or ""))
+          table.insert(lines, "**Date:** " .. (selection.date or ""))
+          table.insert(lines, "")
+          table.insert(lines, "## Description")
+          table.insert(lines, "")
+          for line in tostring(selection.desc):gmatch("[^\r\n]+") do
+            table.insert(lines, line)
+          end
+          table.insert(lines, "")
+          table.insert(lines, "---")
+          table.insert(lines, "**Commit URL:** " .. (selection.commitUrl or ""))
+
+          -- Open new vertical split
+          vim.cmd("vsplit")
+          local buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+          vim.api.nvim_set_current_buf(buf)
+          vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
         end)
+        -- if selection then
+        --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
+        -- end
         return true
       end,
     })
@@ -455,9 +480,7 @@ function A.start_indexing_subdirectory()
           return {
             value = entry,
             ordinal = entry,
-            display = function(entry, _)
-              return entry.value or entry
-            end,
+            display = function(entry, _) return entry.value or entry end,
           }
         end,
       }),
@@ -520,7 +543,11 @@ function A.start_indexing_subdirectory()
     :find()
 end
 
-vim.api.nvim_create_user_command("ContextPilotRelevantFilesWholeFile", function() A.get_topn_contexts() end, {})
+vim.api.nvim_create_user_command(
+  "ContextPilotRelevantFilesWholeFile",
+  function() A.get_topn_contexts() end,
+  {}
+)
 -- vim.api.nvim_create_user_command(
 --   "ContextPilotContextsCurrentLine",
 --   function() A.get_topn_contexts_current_line() end,
