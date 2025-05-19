@@ -19,6 +19,49 @@ local notify_inform = function(msg, level)
   vim.api.nvim_notify(msg, level or vim.log.levels.INFO, {})
 end
 
+local MIN_CONTEXTPILOT_VERSION = "0.9.0"
+
+local function parse_version(version_str)
+  local major, minor, patch = version_str:match("(%d+)%.(%d+)%.(%d+)")
+  return tonumber(major), tonumber(minor), tonumber(patch)
+end
+
+local function is_version_compatible(installed, required)
+  local imaj, imin, ipat = parse_version(installed)
+  local rmaj, rmin, rpat = parse_version(required)
+  if imaj ~= rmaj then return imaj > rmaj end
+  if imin ~= rmin then return imin > rmin end
+  return ipat >= rpat
+end
+
+local function check_contextpilot_version()
+  local output = vim.fn.system(A.command .. " --version")
+  if vim.v.shell_error ~= 0 or not output or output == "" then
+    notify_inform("❌ Unable to determine contextpilot version.", vim.log.levels.ERROR)
+    return false
+  end
+
+  local version = output:match("contextpilot%s+(%d+%.%d+%.%d+)")
+  if not version then
+    notify_inform("⚠️ Unexpected version output: " .. output, vim.log.levels.ERROR)
+    return false
+  end
+
+  if not is_version_compatible(version, MIN_CONTEXTPILOT_VERSION) then
+    notify_inform(
+      string.format(
+        "🚨 Your contextpilot version is %s. Please update to at least version %s.",
+        version,
+        MIN_CONTEXTPILOT_VERSION
+      ),
+      vim.log.levels.WARN
+    )
+    return false
+  end
+
+  return true
+end
+
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 
@@ -216,12 +259,14 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
 end
 
 function A.get_topn_contexts()
+  if not check_contextpilot_version() then return end
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   execute_context_pilot(file_path, folder_path, 1, 0, "query", "Top Files for whole file")
 end
 
 function A.get_topn_contexts_range(start_line, end_line)
+  if not check_contextpilot_version() then return end
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local title = string.format("Top Files for range (%d, %d)", start_line, end_line)
@@ -229,6 +274,7 @@ function A.get_topn_contexts_range(start_line, end_line)
 end
 
 function A.get_topn_contexts_current_line()
+  if not check_contextpilot_version() then return end
   local row = vim.api.nvim_win_get_cursor(0)[1]
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
@@ -237,6 +283,7 @@ function A.get_topn_contexts_current_line()
 end
 
 function A.query_context_for_range(start_line, end_line)
+  if not check_contextpilot_version() then return end
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local title = string.format("Queried Contexts (%d-%d)", start_line, end_line)
@@ -244,6 +291,7 @@ function A.query_context_for_range(start_line, end_line)
 end
 
 function A.start_indexing()
+  if not check_contextpilot_version() then return end
   local folder_path = vim.loop.cwd()
   execute_context_pilot("", folder_path, 0, 0, "index", "Start Indexing your Workspace")
 end
@@ -386,6 +434,7 @@ local function telescope_desc_picker(title)
 end
 
 function A.query_descriptions_for_range(start_line, end_line)
+  if not check_contextpilot_version() then return end
   local file_path = vim.api.nvim_buf_get_name(0)
   local folder_path = vim.loop.cwd()
   local title = string.format("Descriptions (%d-%d)", start_line, end_line)
@@ -419,6 +468,7 @@ function A.query_descriptions_for_range(start_line, end_line)
 end
 
 function A.start_indexing_subdirectory()
+  if not check_contextpilot_version() then return end
   local cwd = vim.loop.cwd()
 
   -- Parse JSON output from `contextpilot`
