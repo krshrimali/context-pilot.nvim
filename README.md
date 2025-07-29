@@ -1,6 +1,6 @@
 # context-pilot.nvim with Generate Diffs
 
-A powerful Neovim plugin that extends the original [context-pilot.nvim](https://github.com/krshrimali/context-pilot.nvim) with additional "Generate Diffs" functionality, similar to the VSCode extension's `generateDiffsForCursorChat` command.
+A powerful Neovim plugin that extends the original [context-pilot.nvim](https://github.com/krshrimali/context-pilot.nvim) with additional "Generate Diffs" functionality for analyzing git commit history and code evolution.
 
 ## Features
 
@@ -127,27 +127,25 @@ The generate diffs command creates a markdown buffer with this structure:
 
 This file contains all relevant git diffs for analysis. You can use this with AI tools to ask questions about these changes.
 
-Commit: abc123def456
-Title: Fix authentication bug
-Author: developer@example.com
-Date: Mon Jan 15 14:30:22 2024
+Commit: b2f766e
+Title: Explicit comments for clarity
+Author: Kushashwa Ravi Shrimali
+Date: Sat Jul 26 21:08:39 2025
 
-diff --git a/auth.js b/auth.js
-index 1234567..abcdefg 100644
---- a/auth.js
-+++ b/auth.js
-@@ -10,7 +10,7 @@ function authenticate(user) {
--  if (user.password === hash) {
-+  if (user.password === hashPassword(user.password)) {
-     return true;
-   }
+diff --git a/lua/contextpilot.lua b/lua/contextpilot.lua
+index 134ad72..692b44c 100644
+--- a/lua/contextpilot.lua
++++ b/lua/contextpilot.lua
+@@ -1,52 +1,78 @@
++-- Main module table that will be returned at the end of the file
+ local A = {}
 
 ---
 
-Commit: def456ghi789
-Title: Add input validation
-Author: another@example.com
-Date: Fri Jan 12 09:15:33 2024
+Commit: ec66890
+Title: Rename to contextpilot (binary)
+Author: Kushashwa Ravi Shrimali
+Date: Tue May 13 18:44:51 2025
 
 [... more diffs ...]
 ```
@@ -172,28 +170,28 @@ vim.keymap.set('v', '<leader>cc', ':ContextPilotRelevantCommitsRange<CR>', { des
 ## Use Cases
 
 ### 1. Bug Investigation
-```lua
+```vim
 -- Select the buggy code
 -- Run :ContextPilotGenerateDiffs
 -- Analyze when and why the code changed
 ```
 
 ### 2. Code Review Preparation
-```lua
+```vim
 -- Open the file you're reviewing
 -- Run :ContextPilotGenerateDiffs
 -- Understand the historical context
 ```
 
 ### 3. Legacy Code Understanding
-```lua
+```vim
 -- Select complex function
 -- Generate diffs to see evolution
 -- Use with AI: "Explain how this function changed over time"
 ```
 
 ### 4. Refactoring Planning
-```lua
+```vim
 -- Analyze code section
 -- See historical changes
 -- Plan refactoring based on change patterns
@@ -236,11 +234,20 @@ vim.opt.termguicolors = true -- For better diff highlighting
 
 ### How It Works
 1. **Version Check**: Validates contextpilot binary compatibility
-2. **Context Analysis**: Runs `contextpilot <workspace> -t desc <file> -s <start> -e <end>`
+2. **Context Analysis**: Runs `contextpilot <workspace> -t desc -s <start> -e <end> <file>`
 3. **Commit Parsing**: Parses JSON output with commit metadata
 4. **Diff Generation**: For each commit, runs `git show <hash> -- "<file>"`
 5. **Buffer Creation**: Creates markdown document with formatted output
 6. **Display**: Opens in vertical split with syntax highlighting
+
+### Contextpilot Output Format
+The plugin expects contextpilot to return JSON in this format:
+```json
+[
+  ["Title", "Description", "Author", "Date", "URL"],
+  ["Another commit", "", "Author Name", "Sat Jul 26 21:08:39 2025", "https://github.com/repo/commit/hash"]
+]
+```
 
 ### Performance
 - **Asynchronous**: All operations run in background
@@ -264,7 +271,7 @@ MIT License - see LICENSE file for details.
 
 - Original [context-pilot.nvim](https://github.com/krshrimali/context-pilot.nvim) by Kushashwa Ravi Shrimali
 - [context-pilot-rs](https://github.com/krshrimali/context-pilot-rs) Rust backend
-- [context-pilot-vscode](https://github.com/krshrimali/context-pilot-vscode) for inspiration
+- Inspired by similar functionality in various code analysis tools
 
 ## Changelog
 
@@ -275,3 +282,4 @@ MIT License - see LICENSE file for details.
 - ✅ Visual selection support
 - ✅ Progress indicators and error handling
 - ✅ Integration with existing context-pilot functionality
+- ✅ Proper handling of contextpilot JSON output format

@@ -1,11 +1,7 @@
 -- Generate Diffs module for context-pilot.nvim
--- This module implements functionality similar to VSCode's generateDiffsForCursorChat command
+-- This module implements functionality to generate git diffs for relevant commits
 
 local M = {}
-
--- Import required modules
-local job = require('plenary.job')
-local Path = require('plenary.path')
 
 -- Configuration
 M.command = "contextpilot"
@@ -117,12 +113,12 @@ end
 -- Execute contextpilot desc command to get commit information
 local function get_commit_descriptions(file_info, line_range)
     local command = string.format(
-        "%s %s -t desc %s -s %d -e %d",
+        "%s %s -t desc -s %d -e %d %s",
         M.command,
         file_info.folder_path,
-        file_info.file_path,
         line_range.start_line,
-        line_range.end_line
+        line_range.end_line,
+        file_info.file_path
     )
     
     return vim.fn.system(command)
@@ -152,9 +148,10 @@ local function extract_commit_hash(hash_or_url)
 end
 
 -- Format a single commit diff entry
+-- Expected format: [title, description, author, date, hash_url]
 local function format_commit_diff(commit_data, diff_output)
-    local title, description, author, date, hash = unpack(commit_data)
-    local commit_hash = extract_commit_hash(hash)
+    local title, description, author, date, hash_url = unpack(commit_data)
+    local commit_hash = extract_commit_hash(hash_url)
     
     return string.format(
         "Commit: %s\nTitle: %s\nAuthor: %s\nDate: %s\n\n%s\n\n---\n\n",
@@ -221,7 +218,7 @@ local function open_diff_buffer(buf)
     return win
 end
 
--- Main function to generate diffs (similar to VSCode's generateDiffsForCursorChat)
+-- Main function to generate diffs
 function M.generate_diffs_for_chat()
     -- Version check
     if not check_contextpilot_version() then
@@ -262,11 +259,11 @@ function M.generate_diffs_for_chat()
     
     -- Generate diffs for each commit
     local commit_diffs = {}
-    local processed_count = 0
     
     for _, commit_data in ipairs(parsed_commits) do
-        local title, description, author, date, hash = unpack(commit_data)
-        local commit_hash = extract_commit_hash(hash)
+        -- Format: [title, description, author, date, hash_url]
+        local title, description, author, date, hash_url = unpack(commit_data)
+        local commit_hash = extract_commit_hash(hash_url)
         
         -- Get git diff for this commit
         local diff_output = get_git_diff(commit_hash, file_info.file_path, file_info.folder_path)
@@ -274,7 +271,6 @@ function M.generate_diffs_for_chat()
         if diff_output and diff_output:match("%S") then -- Check if diff is not empty/whitespace
             local formatted_diff = format_commit_diff(commit_data, diff_output)
             table.insert(commit_diffs, formatted_diff)
-            processed_count = processed_count + 1
         end
     end
     
@@ -338,8 +334,9 @@ function M.generate_diffs_for_range(start_line, end_line)
     local commit_diffs = {}
     
     for _, commit_data in ipairs(parsed_commits) do
-        local title, description, author, date, hash = unpack(commit_data)
-        local commit_hash = extract_commit_hash(hash)
+        -- Format: [title, description, author, date, hash_url]
+        local title, description, author, date, hash_url = unpack(commit_data)
+        local commit_hash = extract_commit_hash(hash_url)
         
         -- Get git diff for this commit
         local diff_output = get_git_diff(commit_hash, file_info.file_path, file_info.folder_path)

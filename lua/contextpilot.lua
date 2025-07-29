@@ -474,7 +474,7 @@ end
 
 -- Parse a date string into a Unix timestamp for sorting purposes
 local function parse_date_str(date_str)
-    -- Assumes format like: "Fri May 17 15:44:01 2024"
+    -- Assumes format like: "Sat Jul 26 21:08:39 2025"
     -- Pattern to extract: (weekday) (month) (day) (hour):(minute):(second) (year)
     local pattern = "(%a+)%s+(%a+)%s+(%d+)%s+(%d+):(%d+):(%d+)%s+(%d+)"
     local _, _, _, month_str, day, hour, min, sec, year = date_str:find(pattern)
@@ -510,8 +510,9 @@ local function telescope_desc_picker(title)
 
     -- Sort by date (most recent first)
     table.sort(A.desc_data, function(a, b)
-        local date_a = parse_date_str(a[5] or "")
-        local date_b = parse_date_str(b[5] or "")
+        -- Format: [title, description, author, date, hash_url]
+        local date_a = parse_date_str(a[4] or "")
+        local date_b = parse_date_str(b[4] or "")
         return date_a > date_b
     end)
 
@@ -522,8 +523,9 @@ local function telescope_desc_picker(title)
             finder = finders.new_table({
                 results = A.desc_data,
                 entry_maker = function(entry)
-                    local title, description, author, date, hash = unpack(entry)
-                    local commit_hash = hash:match(".*/(.+)$") or hash
+                    -- Format: [title, description, author, date, hash_url]
+                    local title, description, author, date, hash_url = unpack(entry)
+                    local commit_hash = hash_url:match(".*/(.+)$") or hash_url
                     local short_hash = commit_hash:sub(1, 8)
                     local display_line = string.format("[%s] %s (%s)", short_hash, title, author)
                     return {
@@ -596,13 +598,14 @@ function A.query_descriptions_for_range(start_line, end_line)
     local title = string.format("Commit Descriptions (%d-%d)", start_line, end_line)
 
     A.desc_data = {}
+    -- Fixed command format: contextpilot folder -t desc -s start -e end file
     local command = string.format(
-        "%s %s -t desc %s -s %d -e %d",
+        "%s %s -t desc -s %d -e %d %s",
         A.command,
         folder_path,
-        file_path,
         start_line,
-        end_line
+        end_line,
+        file_path
     )
 
     start_spinner_minimal("Getting commit descriptions...")
@@ -745,7 +748,7 @@ vim.api.nvim_create_user_command(
     {}
 )
 
--- NEW: Commands for generate diffs functionality
+-- Commands for generate diffs functionality
 vim.api.nvim_create_user_command(
     "ContextPilotGenerateDiffs",
     function() diffs.generate_diffs_for_chat() end,
