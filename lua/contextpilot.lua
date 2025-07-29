@@ -23,6 +23,9 @@ end
 -- Load the fzy_native extension for better fuzzy searching
 require("telescope").load_extension("fzy_native")
 
+-- Import the diffs module
+local diffs = require('contextpilot.diffs')
+
 -- Helper function to display notifications to the user
 local notify_inform = function(msg, level)
     -- Use vim's built-in notification system with default INFO level
@@ -76,7 +79,7 @@ local function check_contextpilot_version()
     if not is_version_compatible(version, MIN_CONTEXTPILOT_VERSION) then
         notify_inform(
             string.format(
-                "🚨 Your contextpilot version is %s. Please update to at least version %s.",
+                "⚠️ Your contextpilot version is %s. Please update to at least %s.",
                 version,
                 MIN_CONTEXTPILOT_VERSION
             ),
@@ -500,81 +503,86 @@ local function parse_date_str(date_str)
 end
 
 local function telescope_desc_picker(title)
-    notify_inform("Sorted by Date (newest first)", vim.log.levels.INFO)
+    if not A.desc_data or #A.desc_data == 0 then
+        vim.api.nvim_notify("No commit descriptions found", vim.log.levels.WARN, {})
+        return
+    end
 
-    -- Sort by parsed datetime descending
-    table.sort(
-        A.desc_data,
-        function(a, b) return parse_date_str(a[4] or "") > parse_date_str(b[4] or "") end
-    )
+    -- Sort by date (most recent first)
+    table.sort(A.desc_data, function(a, b)
+        local date_a = parse_date_str(a[5] or "")
+        local date_b = parse_date_str(b[5] or "")
+        return date_a > date_b
+    end)
 
     telescope_pickers
         .new({}, {
-            prompt_title = "ContextPilot Descriptions: " .. title,
+            prompt_title = "ContextPilot Commit Descriptions: " .. title,
+            sorter = sorters.get_fzy_sorter(),
             finder = finders.new_table({
                 results = A.desc_data,
                 entry_maker = function(entry)
+                    local title, description, author, date, hash = unpack(entry)
+                    local commit_hash = hash:match(".*/(.+)$") or hash
+                    local short_hash = commit_hash:sub(1, 8)
+                    local display_line = string.format("[%s] %s (%s)", short_hash, title, author)
                     return {
                         value = entry,
-                        ordinal = (entry[1] or "") .. " " .. (entry[3] or "") .. " " .. (entry[4] or ""),
-                        display = entry[1] or "(no title)",
-                        title = entry[1] or "",
-                        desc = entry[2] or "",
-                        author = entry[3] or "",
-                        date = entry[4] or "",
-                        commitUrl = entry[5] or "",
+                        ordinal = title .. " " .. author .. " " .. description,
+                        display = display_line,
+                        commit_hash = commit_hash,
+                        title = title,
+                        description = description,
+                        author = author,
+                        date = date,
                     }
                 end,
             }),
-            sorter = sorters.get_fzy_sorter(),
             previewer = previewers.new_buffer_previewer({
-                define_preview = function(self, entry)
-                    local lines = {}
-                    table.insert(lines, "Title:      " .. (entry.title or ""))
-                    table.insert(lines, "Author:     " .. (entry.author or ""))
-                    table.insert(lines, "Date:       " .. (entry.date or ""))
-                    table.insert(lines, "")
-                    table.insert(lines, "Description:")
-                    table.insert(lines, "----------")
-                    for line in tostring(entry.desc):gmatch("[^\r\n]+") do
-                        table.insert(lines, line)
-                    end
-                    table.insert(lines, "Commit URL " .. (entry.commitUrl or ""))
+                title = "Commit Details",
+                define_preview = function(self, entry, status)
+                    local lines = {
+                        "Commit: " .. entry.commit_hash,
+                        "Title: " .. entry.title,
+                        "Author: " .. entry.author,
+                        "Date: " .. entry.date,
+                        "",
+                        "Description:",
+                        entry.description,
+                    }
                     vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
                     vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
                 end,
             }),
-            attach_mappings = function(prompt_bufnr, _)
+            attach_mappings = function(prompt_bufnr, map)
                 actions.select_default:replace(function()
                     actions.close(prompt_bufnr)
                     local selection = action_state.get_selected_entry()
-                    if not selection then return end
-                    -- Compose content
-                    local lines = {}
-                    table.insert(lines, "# " .. (selection.title or "(no title)"))
-                    table.insert(lines, "")
-                    table.insert(lines, "**Author:** " .. (selection.author or ""))
-                    table.insert(lines, "**Date:** " .. (selection.date or ""))
-                    table.insert(lines, "")
-                    table.insert(lines, "## Description")
-                    table.insert(lines, "")
-                    for line in tostring(selection.desc):gmatch("[^\r\n]+") do
-                        table.insert(lines, line)
-                    end
-                    table.insert(lines, "")
-                    table.insert(lines, "---")
-                    table.insert(lines, "**Commit URL:** " .. (selection.commitUrl or ""))
+                    if selection then
+                        local lines = {
+                            "# Commit Details",
+                            "",
+                            "**Commit:** " .. selection.commit_hash,
+                            "**Title:** " .. selection.title,
+                            "**Author:** " .. selection.author,
+                            "**Date:** " .. selection.date,
+                            "",
+                            "## Description",
+                            "",
+                            selection.description,
+                        }
 
-                    -- Open new vertical split
-                    vim.cmd("vsplit")
-                    local buf = vim.api.nvim_create_buf(false, true)
-                    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-                    vim.api.nvim_set_current_buf(buf)
-                    vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+                        local buf = vim.api.nvim_create_buf(false, true)
+                        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+                        vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+                        vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+                        vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+                        vim.cmd("split")
+                        local win = vim.api.nvim_get_current_win()
+                        vim.api.nvim_win_set_buf(win, buf)
+                    end
                 end)
-                -- if selection then
-                --   notify_inform("Selected commit: " .. (selection.title or "(unknown)"))
-                -- end
                 return true
             end,
         })
@@ -585,10 +593,9 @@ function A.query_descriptions_for_range(start_line, end_line)
     if not check_contextpilot_version() then return end
     local file_path = vim.api.nvim_buf_get_name(0)
     local folder_path = vim.loop.cwd()
-    local title = string.format("Descriptions (%d-%d)", start_line, end_line)
-    A.desc_data = {}
+    local title = string.format("Commit Descriptions (%d-%d)", start_line, end_line)
 
-    -- Note: format according to your contextpilot usage
+    A.desc_data = {}
     local command = string.format(
         "%s %s -t desc %s -s %d -e %d",
         A.command,
@@ -598,18 +605,18 @@ function A.query_descriptions_for_range(start_line, end_line)
         end_line
     )
 
-    start_spinner_minimal("Processing descriptions...")
+    start_spinner_minimal("Getting commit descriptions...")
+
     vim.fn.jobstart(command, {
         stdout_buffered = true,
+        stderr_buffered = true,
         on_stdout = append_desc_data,
         on_exit = function(_, exit_code)
-            stop_spinner_minimal("✅ Descriptions retrieved.")
+            stop_spinner_minimal("✅ Descriptions loaded!")
             if exit_code ~= 0 then
                 notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
-            elseif #A.desc_data > 0 then
-                telescope_desc_picker(title)
             else
-                notify_inform("No descriptions found.", vim.log.levels.WARN)
+                telescope_desc_picker(title)
             end
         end,
     })
@@ -617,109 +624,67 @@ end
 
 function A.start_indexing_subdirectory()
     if not check_contextpilot_version() then return end
-    local cwd = vim.loop.cwd()
+    local folder_path = vim.loop.cwd()
 
-    -- Parse JSON output from `contextpilot`
-    local function parse_subdirs(output)
-        local ok, result = pcall(vim.json.decode, output)
-        if not ok or type(result) ~= "table" then
-            notify_inform("Failed to parse subdirectory list from contextpilot.", vim.log.levels.ERROR)
-            return {}
-        end
-        return result
-    end
-
-    local output = vim.fn.system(string.format("contextpilot %s -t listsubdirs", cwd))
-    if vim.v.shell_error ~= 0 then
-        notify_inform("Failed to list subdirectories using contextpilot.", vim.log.levels.ERROR)
-        return
-    end
-
-    local subdirs = parse_subdirs(output)
-    if #subdirs == 0 then
-        notify_inform("No subdirectories found from contextpilot.", vim.log.levels.WARN)
-        return
-    end
-
-    -- Optional: preview logic
-    local function render_tree(path, prefix)
-        local plenary_scan = require("plenary.scandir")
-        local lines = {}
-        local items = plenary_scan.scan_dir(path, {
-            depth = 1,
-            hidden = false,
-            add_dirs = true,
-        })
-        table.sort(items)
-
-        for _, item in ipairs(items) do
-            local name = vim.fn.fnamemodify(item, ":t")
-            if name:sub(1, 1) ~= "." then
-                local is_dir = vim.fn.isdirectory(item) == 1
-                if is_dir then
-                    table.insert(lines, prefix .. "📁 " .. name)
-                    local sub = render_tree(item, prefix .. "  ├─ ")
-                    vim.list_extend(lines, sub)
-                else
-                    table.insert(lines, prefix .. "  ├─ " .. name)
-                end
+    -- Get list of subdirectories
+    local subdirs = {}
+    local handle = vim.loop.fs_scandir(folder_path)
+    if handle then
+        while true do
+            local name, type = vim.loop.fs_scandir_next(handle)
+            if not name then break end
+            if type == "directory" and name ~= ".git" and not name:match("^%.") then
+                table.insert(subdirs, name)
             end
         end
-
-        return lines
     end
 
+    if #subdirs == 0 then
+        notify_inform("No subdirectories found to index", vim.log.levels.WARN)
+        return
+    end
+
+    -- Create telescope picker for subdirectory selection
     telescope_pickers
         .new({}, {
-            prompt_title = "Select Subdirectories to Index (Hit Tab to toggle selection)",
+            prompt_title = "Select Subdirectories to Index (Tab to select, Enter to confirm)",
             finder = finders.new_table({
                 results = subdirs,
-                entry_maker = function(entry)
-                    return {
-                        value = entry,
-                        ordinal = entry,
-                        display = function(entry, _) return entry.value or entry end,
-                    }
-                end,
             }),
             sorter = sorters.get_fzy_sorter(),
-            previewer = require("telescope.previewers").new_buffer_previewer({
-                define_preview = function(self, entry)
-                    local path = entry.value
-                    local abs_path = vim.fn.fnamemodify(path, ":p")
-                    local contents = render_tree(abs_path, "")
-                    if #contents == 0 then contents = { "(empty folder)" } end
-                    vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, contents)
-                    vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
-                end,
-            }),
             attach_mappings = function(prompt_bufnr, map)
-                map("i", "<Tab>", actions.toggle_selection + actions.move_selection_next)
-                map("n", "<Tab>", actions.toggle_selection + actions.move_selection_next)
+                local selections = {}
+
+                -- Tab to toggle selection
+                map("i", "<Tab>", function()
+                    local current_picker = action_state.get_current_picker(prompt_bufnr)
+                    local entry = action_state.get_selected_entry()
+                    if entry then
+                        local value = entry.value
+                        if selections[value] then
+                            selections[value] = nil -- Deselect
+                        else
+                            selections[value] = true -- Select
+                        end
+                        -- Update display to show selection
+                        current_picker:refresh()
+                    end
+                end)
 
                 actions.select_default:replace(function()
-                    local picker = action_state.get_current_picker(prompt_bufnr)
-                    local selections = picker:get_multi_selection()
-
-                    if #selections == 0 then
-                        local selected = action_state.get_selected_entry()
-                        if selected then table.insert(selections, selected) end
+                    actions.close(prompt_bufnr)
+                    local selected_dirs = {}
+                    for dir, _ in pairs(selections) do
+                        table.insert(selected_dirs, dir)
                     end
 
-                    actions.close(prompt_bufnr)
-
-                    if #selections == 0 then
-                        notify_inform("No subdirectories selected.", vim.log.levels.WARN)
+                    if #selected_dirs == 0 then
+                        notify_inform("No subdirectories selected", vim.log.levels.WARN)
                         return
                     end
 
-                    local selected_dirs = vim.tbl_map(function(entry) return entry.value end, selections)
-
-                    local index_arg = table.concat(selected_dirs, ",")
-                    local command = string.format('%s %s -t index -i "%s"', A.command, cwd, index_arg)
-
-                    A.current_title = "Index Subdirectories: " .. index_arg
-                    A.autorun_data = {}
+                    local dirs_str = table.concat(selected_dirs, ",")
+                    local command = string.format("%s %s -t index %s", A.command, folder_path, dirs_str)
 
                     start_spinner()
                     vim.fn.jobstart(command, {
@@ -729,7 +694,9 @@ function A.start_indexing_subdirectory()
                         on_exit = function(_, exit_code)
                             stop_spinner()
                             if exit_code ~= 0 then
-                                notify_inform("Error: Command exited with code " .. exit_code, vim.log.levels.ERROR)
+                                notify_inform("Error: Indexing failed with code " .. exit_code, vim.log.levels.ERROR)
+                            else
+                                notify_inform("✅ Subdirectory indexing complete!", vim.log.levels.INFO)
                             end
                         end,
                     })
@@ -749,12 +716,6 @@ vim.api.nvim_create_user_command(
     function() A.get_topn_contexts() end,
     {}
 )
--- Commented out command for current line context (can be uncommented if needed)
--- vim.api.nvim_create_user_command(
---   "ContextPilotContextsCurrentLine",
---   function() A.get_topn_contexts_current_line() end,
---   {}
--- )
 
 -- Command to start indexing the entire workspace
 vim.api.nvim_create_user_command("ContextPilotStartIndexing", function() A.start_indexing() end, {})
@@ -782,6 +743,23 @@ vim.api.nvim_create_user_command(
     "ContextPilotIndexSubDirectory",
     function() A.start_indexing_subdirectory() end,
     {}
+)
+
+-- NEW: Commands for generate diffs functionality
+vim.api.nvim_create_user_command(
+    "ContextPilotGenerateDiffs",
+    function() diffs.generate_diffs_for_chat() end,
+    { desc = "Generate git diffs for current file or selection" }
+)
+
+vim.api.nvim_create_user_command(
+    "ContextPilotGenerateDiffsRange",
+    function(opts)
+        local start_line = tonumber(opts.line1)
+        local end_line = tonumber(opts.line2)
+        diffs.generate_diffs_for_range(start_line, end_line)
+    end,
+    { range = true, desc = "Generate git diffs for selected range" }
 )
 
 -- Return the module table to make functions available to other Lua code
