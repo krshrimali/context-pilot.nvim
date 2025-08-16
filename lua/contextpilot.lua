@@ -26,7 +26,7 @@ require("telescope").load_extension("fzy_native")
 -- Helper function to display notifications to the user
 local notify_inform = function(msg, level)
     -- Use vim's built-in notification system with default INFO level
-    vim.api.nvim_notify(msg, level or vim.log.levels.INFO, {})
+    vim.notify(msg, level or vim.log.levels.INFO)
 end
 
 -- Minimum required version of contextpilot binary for compatibility
@@ -109,13 +109,13 @@ local function create_floating_window()
     progress_buf = vim.api.nvim_create_buf(false, true)
     -- Configure window options for the floating window
     local win_opts = {
-        relative = "editor", -- Position relative to the editor
-        width = 60, -- Window width in columns
-        height = 6, -- Window height in rows
+        relative = "editor",      -- Position relative to the editor
+        width = 60,               -- Window width in columns
+        height = 6,               -- Window height in rows
         col = vim.o.columns - 62, -- Position 62 columns from the right edge
-        row = vim.o.lines - 6, -- Position 6 rows from the bottom
-        style = "minimal", -- Remove UI elements like line numbers
-        border = "rounded", -- Use rounded border style
+        row = vim.o.lines - 6,    -- Position 6 rows from the bottom
+        style = "minimal",        -- Remove UI elements like line numbers
+        border = "rounded",       -- Use rounded border style
     }
     -- Create and open the floating window with the specified buffer and options
     progress_win = vim.api.nvim_open_win(progress_buf, true, win_opts)
@@ -127,10 +127,10 @@ local function update_floating_window(text)
     if progress_buf and vim.api.nvim_buf_is_valid(progress_buf) then
         -- Set the complete content of the buffer with progress information
         vim.api.nvim_buf_set_lines(progress_buf, 0, -1, false, {
-            "📦 Indexing Workspace...", -- Header with package emoji
-            "", -- Empty line for spacing
-            text or "", -- Dynamic text (spinner + status) or empty string
-            "", -- Empty line for spacing
+            "> Indexing Workspace...",           -- Header with package emoji
+            "",                                  -- Empty line for spacing
+            text or "",                          -- Dynamic text (spinner + status) or empty string
+            "",                                  -- Empty line for spacing
             "Press <ESC> to close this message", -- User instruction
         })
     end
@@ -147,7 +147,7 @@ local function start_spinner_minimal(msg)
     spinner_timer = vim.loop.new_timer()
     -- Start the timer with specified intervals and callback
     spinner_timer:start(
-        0, -- start immediately (no initial delay)
+        0,   -- start immediately (no initial delay)
         120, -- repeat every 120ms for smooth animation
         -- Run this function on each tick:
         vim.schedule_wrap(function()
@@ -188,7 +188,7 @@ local function start_spinner()
     progress_timer = vim.loop.new_timer()
     -- Start the timer with faster update interval than minimal spinner
     progress_timer:start(
-        0, -- start immediately
+        0,   -- start immediately
         100, -- update every 100ms for smoother animation
         vim.schedule_wrap(function()
             -- Only update if the progress buffer is still valid
@@ -213,7 +213,7 @@ local function stop_spinner()
         progress_timer = nil
     end
     -- Update the floating window with completion message and final file count
-    update_floating_window("✅ Indexing complete! Total files: " .. tostring(#extracted_files))
+    update_floating_window("!! Indexing complete. Total files: " .. tostring(#extracted_files))
     -- Schedule the floating window to close after 2 seconds
     vim.defer_fn(function()
         -- Check if window is still valid before attempting to close
@@ -240,6 +240,7 @@ local function telescope_picker(title)
                 -- Function to transform each result into a telescope entry
                 entry_maker = function(entry)
                     -- Parse the entry string to extract filepath and occurrence count
+                    -- <relative file path> - <occurences_integer> occurences
                     local filepath, count = entry:match("^(.-)%s+%((%d+)%s+occurrences%)$")
                     -- If parsing fails, use the entire entry as filepath with 0 occurrences
                     if not filepath then
@@ -248,10 +249,10 @@ local function telescope_picker(title)
                     end
                     -- Return telescope entry structure
                     return {
-                        value = entry, -- Original entry string
-                        ordinal = filepath, -- String used for fuzzy matching
+                        value = entry,                                                    -- Original entry string
+                        ordinal = filepath,                                               -- String used for fuzzy matching
                         display = string.format("%-60s %s occurrences", filepath, count), -- Display format
-                        path = filepath, -- File path for opening
+                        path = filepath,                                                  -- File path for opening
                     }
                 end,
             }),
@@ -268,14 +269,14 @@ local function telescope_picker(title)
                         -- Use fnameescape to handle filenames with special characters
                         vim.cmd("edit " .. vim.fn.fnameescape(selection.path))
                     else
-                        vim.api.nvim_notify("No path to open", vim.log.levels.WARN, {})
+                        vim.notify("No path to open in the picker", vim.log.levels.ERROR)
                     end
                 end)
                 -- Return true to indicate mappings were successfully attached
                 return true
             end,
         })
-        -- Start the picker and display it to the user
+    -- Start the picker and display it to the user
         :find()
 end
 
@@ -288,7 +289,7 @@ local function append_data(_, data)
         -- Remove carriage return characters for consistent line endings
         line = line:gsub("\r", "")
         -- Look for lines indicating file extraction (for indexing progress)
-        local extracted_path = line:match("^Extracted details for file:%s+(.-)$")
+        local extracted_path = line:match("^Successfully indexed file:%s+(.-)$")
         if extracted_path then table.insert(extracted_files, extracted_path) end
         -- Look for lines with occurrence counts (for query results)
         local file_path, count = line:match("^(.-)%s+%-+%s+(%d+)%s+occurrences$")
@@ -306,23 +307,24 @@ local function build_command(file_path, folder_path, start, end_, mode)
     -- For other modes (query, desc), include file path and line range parameters
     return string.format(
         "%s %s -t %s %s -s %d -e %d", -- contextpilot folder -t mode file -s start -e end
-        A.command, -- The contextpilot binary name
-        folder_path, -- Working directory path
-        mode, -- Operation mode (query, desc, etc.)
-        file_path, -- Target file path
-        start, -- Starting line number
-        end_ -- Ending line number (end_ to avoid Lua keyword conflict)
+        A.command,                    -- The contextpilot binary name
+        folder_path,                  -- Working directory path
+        mode,                         -- Operation mode (query, desc, etc.)
+        file_path,                    -- Target file path
+        start,                        -- Starting line number
+        end_                          -- Ending line number (end_ to avoid Lua keyword conflict)
     )
 end
 
 -- Execute a contextpilot command with specified parameters and handle the results
-local function execute_context_pilot(file_path, folder_path, start, end_, mode, title)
+local function execute_context_pilot(file_path, folder_path, start_line_number, end_line_number, mode, title)
     -- Clear previous results and set the current operation title
+    -- TODO: have a cleanup function and init function for such variables.
     A.autorun_data = {}
     A.current_title = title
 
     -- Build the command string using provided parameters
-    local command = build_command(file_path, folder_path, start, end_, mode)
+    local command = build_command(file_path, folder_path, start_line_number, end_line_number, mode)
 
     -- Choose appropriate spinner based on operation mode
     if mode == "query" then
@@ -336,13 +338,13 @@ local function execute_context_pilot(file_path, folder_path, start, end_, mode, 
     -- Start the contextpilot command as an asynchronous job
     vim.fn.jobstart(command, {
         stdout_buffered = false, -- Process output line by line as it comes
-        stderr_buffered = true, -- Buffer stderr for error handling
-        pty = false, -- Don't allocate a pseudo-terminal
+        stderr_buffered = true,  -- Buffer stderr for error handling
+        pty = false,             -- Don't allocate a pseudo-terminal
         on_stdout = append_data, -- Process each line of stdout
         on_exit = function(_, exit_code)
             -- Stop the appropriate spinner based on mode
             if mode == "query" then
-                stop_spinner_minimal("✅ Query complete!")
+                stop_spinner_minimal("!Query complete!")
             else
                 stop_spinner()
             end
@@ -374,7 +376,7 @@ function A.get_topn_contexts()
     if not check_contextpilot_version() then return end
     -- Get the current file path and working directory and do some validations:
     local file_path = vim.api.nvim_buf_get_name(0) -- Path of currently open buffer
-    local folder_path = vim.loop.cwd() -- Current working directory
+    local folder_path = vim.loop.cwd()             -- Current working directory
     -- Just some extra precautions.
     if file_path == "" then
         notify_inform("No file is currently open.", vim.log.levels.WARN)
@@ -434,6 +436,7 @@ function A.start_indexing()
     -- Ensure contextpilot binary is available and compatible
     if not check_contextpilot_version() then return end
     -- Get current working directory to index
+    -- TODO: Move it to vim.uv later
     local folder_path = vim.loop.cwd()
     -- Execute contextpilot indexing (empty file_path and 0,0 range for whole workspace)
     execute_context_pilot("", folder_path, 0, 0, "index", "Start Indexing your Workspace")
@@ -465,7 +468,7 @@ local function append_desc_data(_, data)
         A.desc_data = parsed
     else
         -- Notify user if JSON parsing failed
-        vim.api.nvim_notify("Failed to parse contextpilot desc JSON output", vim.log.levels.ERROR, {})
+        vim.notify("Failed to parse contextpilot desc JSON output", vim.log.levels.ERROR)
     end
 end
 
@@ -481,9 +484,18 @@ local function parse_date_str(date_str)
 
     -- Map month abbreviations to numeric values
     local month_map = {
-        Jan = 1, Feb = 2, Mar = 3, Apr = 4,
-        May = 5, Jun = 6, Jul = 7, Aug = 8,
-        Sep = 9, Oct = 10, Nov = 11, Dec = 12,
+        Jan = 1,
+        Feb = 2,
+        Mar = 3,
+        Apr = 4,
+        May = 5,
+        Jun = 6,
+        Jul = 7,
+        Aug = 8,
+        Sep = 9,
+        Oct = 10,
+        Nov = 11,
+        Dec = 12,
     }
     -- Get numeric month, defaulting to 1 if not found
     local month = month_map[month_str] or 1
